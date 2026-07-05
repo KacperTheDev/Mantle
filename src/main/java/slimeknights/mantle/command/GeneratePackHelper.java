@@ -2,6 +2,7 @@ package slimeknights.mantle.command;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.mojang.serialization.JsonOps;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
 import net.minecraft.SharedConstants;
 import net.minecraft.network.chat.ClickEvent;
@@ -11,10 +12,9 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.world.level.storage.LevelResource;
-import net.minecraftforge.common.crafting.CraftingHelper;
-import net.minecraftforge.common.crafting.conditions.FalseCondition;
-import net.minecraftforge.common.crafting.conditions.ICondition;
-import net.minecraftforge.fml.ModList;
+import net.neoforged.neoforge.common.conditions.FalseCondition;
+import net.neoforged.neoforge.common.conditions.ICondition;
+import net.neoforged.fml.ModList;
 import slimeknights.mantle.Mantle;
 import slimeknights.mantle.util.JsonHelper;
 
@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 /** Helpers for commands generating packs */
 public class GeneratePackHelper {
@@ -37,7 +38,7 @@ public class GeneratePackHelper {
   public static Path getDatapackPath(MinecraftServer server, String packName) {
     // if we have JSON Things, do a global datapack
     if (ModList.get().isLoaded("jsonthings")) {
-      return server.getServerDirectory().toPath().resolve("thingpacks/" + packName);
+      return server.getServerDirectory().resolve("thingpacks/" + packName);
     }
     // TODO: consider option to put in the standard datapacks folder via config property
     // otherwise, do a world local datapack
@@ -72,7 +73,7 @@ public class GeneratePackHelper {
   /** Saves a JSON that removes the given resource using forge conditions */
   public static boolean saveConditionRemove(Path path, String conditionKey) {
     JsonObject json = new JsonObject();
-    json.add(conditionKey, CraftingHelper.serialize(new ICondition[]{FalseCondition.INSTANCE}));
+    json.add(conditionKey, ICondition.LIST_CODEC.encodeStart(JsonOps.INSTANCE, List.of(FalseCondition.INSTANCE)).getOrThrow(RuntimeException::new));
     return saveJson(json, path);
   }
 

@@ -5,24 +5,18 @@ import com.google.gson.JsonObject;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.common.crafting.CraftingHelper;
-import net.minecraftforge.common.crafting.StrictNBTIngredient;
 
 import javax.annotation.Nullable;
-import java.util.Objects;
-
-import net.minecraftforge.common.crafting.StrictNBTIngredient.Serializer;
 
 /**
  * Ingredient for a NBT sensitive item from another mod, should never be used outside datagen
  */
-public class NBTNameIngredient extends StrictNBTIngredient {
+public class NBTNameIngredient {
   private final ResourceLocation name;
   @Nullable
   private final CompoundTag nbt;
 
   protected NBTNameIngredient(ResourceLocation name, @Nullable CompoundTag nbt) {
-    super(ItemStack.EMPTY);
     this.name = name;
     this.nbt = nbt;
   }
@@ -46,15 +40,12 @@ public class NBTNameIngredient extends StrictNBTIngredient {
     return new NBTNameIngredient(name, null);
   }
 
-  @Override
   public boolean test(@Nullable ItemStack stack) {
     throw new UnsupportedOperationException();
   }
 
-  @Override
   public JsonElement toJson() {
     JsonObject json = new JsonObject();
-    json.addProperty("type", Objects.requireNonNull(CraftingHelper.getID(Serializer.INSTANCE)).toString());
     json.addProperty("item", name.toString());
     if (nbt != null) {
       json.addProperty("nbt", nbt.toString());

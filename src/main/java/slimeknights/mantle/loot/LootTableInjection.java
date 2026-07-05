@@ -10,8 +10,8 @@ import slimeknights.mantle.data.loadable.Loadables;
 import slimeknights.mantle.data.loadable.primitive.StringLoadable;
 import slimeknights.mantle.data.loadable.record.RecordLoadable;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,6 +21,8 @@ import java.util.Map;
  * Record holding a list of entries to inject into the given loot table
  */
 public record LootTableInjection(ResourceLocation name, List<LootPoolInjection> pools) {
+  private static final Field LOOT_POOL_ENTRIES = getLootPoolEntriesField();
+
   public static final RecordLoadable<LootTableInjection> LOADABLE = RecordLoadable.create(
     Loadables.RESOURCE_LOCATION.requiredField("name", LootTableInjection::name),
     LootPoolInjection.LOADABLE.list(1).requiredField("pools", LootTableInjection::pools),
@@ -44,9 +46,13 @@ public record LootTableInjection(ResourceLocation name, List<LootPoolInjection> 
       LootPool pool = table.getPool(name);
       //noinspection ConstantConditions method is annotated wrongly
       if (pool != null) {
-        int oldLength = pool.entries.length;
-        pool.entries = Arrays.copyOf(pool.entries, oldLength + entries.length);
-        System.arraycopy(entries, 0, pool.entries, oldLength, entries.length);
+        try {
+          @SuppressWarnings("unchecked")
+          List<LootPoolEntryContainer> poolEntries = (List<LootPoolEntryContainer>)LOOT_POOL_ENTRIES.get(pool);
+          Collections.addAll(poolEntries, entries);
+        } catch (IllegalAccessException e) {
+          Mantle.logger.error("Failed to inject loot into {} pool {}", table.getLootTableId(), name, e);
+        }
       } else {
         Mantle.logger.warn("Failed to inject loot into {} pool {}", table.getLootTableId(), name);
       }
@@ -73,6 +79,17 @@ public record LootTableInjection(ResourceLocation name, List<LootPoolInjection> 
     /** Builds the list of injections */
     public LootTableInjection build(ResourceLocation name) {
       return new LootTableInjection(name, pools.entrySet().stream().map(entry -> new LootPoolInjection(entry.getKey(), List.copyOf(entry.getValue()))).toList());
+    }
+  }
+
+  /** Gets the private loot pool entries field, which replaced the old public array in 1.21. */
+  private static Field getLootPoolEntriesField() {
+    try {
+      Field field = LootPool.class.getDeclaredField("entries");
+      field.setAccessible(true);
+      return field;
+    } catch (NoSuchFieldException e) {
+      throw new IllegalStateException("Failed to find LootPool entries field", e);
     }
   }
 }

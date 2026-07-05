@@ -2,13 +2,15 @@ package slimeknights.mantle.fluid.transfer;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSerializationContext;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.alchemy.PotionUtils;
+import net.minecraft.world.item.component.CustomData;
+import slimeknights.mantle.util.PotionHelper;
 import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.material.Fluids;
-import net.minecraftforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidStack;
 import slimeknights.mantle.Mantle;
 import slimeknights.mantle.data.loadable.common.IngredientLoadable;
 import slimeknights.mantle.data.loadable.primitive.IntLoadable;
@@ -36,18 +38,25 @@ public class EmptyPotionTransfer extends EmptyFluidContainerTransfer {
   public boolean matches(ItemStack stack, FluidStack fluid) {
     // to match, must either have water in the stack, or a potion fluid
     return super.matches(stack, fluid)
-      && (TagPreference.getPreference(MantleTags.Fluids.POTION).isPresent() || PotionUtils.getPotion(stack) == Potions.WATER);
+      && (TagPreference.getPreference(MantleTags.Fluids.POTION).isPresent() || PotionHelper.getPotion(stack) == Potions.WATER.value());
   }
 
   @Override
   protected FluidStack getFluid(ItemStack stack) {
     // water just returns water
-    if (PotionUtils.getPotion(stack) == Potions.WATER) {
+    if (PotionHelper.getPotion(stack) == Potions.WATER.value()) {
       return fluid.copy();
     }
     // if it's not water, we need a potion fluid to return anything
     return TagPreference.getPreference(MantleTags.Fluids.POTION)
-      .map(value -> new FluidStack(value, fluid.getAmount(), stack.getTag()))
+      .map(value -> {
+        FluidStack result = new FluidStack(value, fluid.getAmount());
+        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
+        if (data != null && !data.isEmpty()) {
+          result.set(DataComponents.CUSTOM_DATA, CustomData.of(data.copyTag()));
+        }
+        return result;
+      })
       .orElse(FluidStack.EMPTY);
   }
 

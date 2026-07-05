@@ -3,12 +3,13 @@ package slimeknights.mantle.client.screen.book;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.advancements.Advancement;
+import net.minecraft.advancements.AdvancementHolder;
+import net.minecraft.advancements.AdvancementNode;
 import net.minecraft.advancements.AdvancementProgress;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.font.FontManager;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ClientAdvancements;
 import net.minecraft.client.renderer.GameRenderer;
@@ -115,8 +116,7 @@ public class BookScreen extends Screen {
   /** Gets the alt Minecraft font */
   public static Font getAltFont() {
     if (altFont == null) {
-      FontManager resourceManager = Minecraft.getInstance().fontManager;
-      altFont = new Font(rl -> resourceManager.fontSets.get(Minecraft.ALT_FONT), false);
+      altFont = Minecraft.getInstance().font;
     }
     return altFont;
   }
@@ -124,8 +124,7 @@ public class BookScreen extends Screen {
   /** Gets the uniform version of the Minecraft font */
   public static Font getUniformFont() {
     if (uniformFont == null) {
-      FontManager resourceManager = Minecraft.getInstance().fontManager;
-      uniformFont = new Font(rl -> resourceManager.fontSets.get(Minecraft.UNIFORM_FONT), false);
+      uniformFont = Minecraft.getInstance().font;
     }
     return uniformFont;
   }
@@ -467,16 +466,16 @@ public class BookScreen extends Screen {
   }
 
   @Override
-  public boolean mouseScrolled(double unKnown1, double unKnown2, double scrollDelta) {
-    if (scrollDelta < 0.0D) {
+  public boolean mouseScrolled(double mouseX, double mouseY, double horizontalDelta, double verticalDelta) {
+    if (verticalDelta < 0.0D) {
       nextPage();
       return true;
-    } else if (scrollDelta > 0.0D) {
+    } else if (verticalDelta > 0.0D) {
       previousPage();
       return true;
     }
 
-    return super.mouseScrolled(scrollDelta, unKnown1, unKnown2);
+    return super.mouseScrolled(mouseX, mouseY, horizontalDelta, verticalDelta);
   }
 
   @Override
@@ -806,39 +805,39 @@ public class BookScreen extends Screen {
     }
 
     public Advancement getAdvancement(String id) {
-      return this.nameCache.get(new ResourceLocation(id));
+      return this.nameCache.get(ResourceLocation.parse(id));
     }
 
     @Override
-    public void onUpdateAdvancementProgress(Advancement advancement, AdvancementProgress advancementProgress) {
-      this.progress.put(advancement, advancementProgress);
+    public void onUpdateAdvancementProgress(AdvancementNode advancement, AdvancementProgress advancementProgress) {
+      this.progress.put(advancement.advancement(), advancementProgress);
     }
 
     @Override
-    public void onSelectedTabChanged(@Nullable Advancement advancement) {
+    public void onSelectedTabChanged(@Nullable AdvancementHolder advancement) {
       // noop
     }
 
     @Override
-    public void onAddAdvancementRoot(Advancement advancement) {
-      this.nameCache.put(advancement.getId(), advancement);
+    public void onAddAdvancementRoot(AdvancementNode advancement) {
+      this.nameCache.put(advancement.holder().id(), advancement.advancement());
     }
 
     @Override
-    public void onRemoveAdvancementRoot(Advancement advancement) {
-      this.progress.remove(advancement);
-      this.nameCache.remove(advancement.getId());
+    public void onRemoveAdvancementRoot(AdvancementNode advancement) {
+      this.progress.remove(advancement.advancement());
+      this.nameCache.remove(advancement.holder().id());
     }
 
     @Override
-    public void onAddAdvancementTask(Advancement advancement) {
-      this.nameCache.put(advancement.getId(), advancement);
+    public void onAddAdvancementTask(AdvancementNode advancement) {
+      this.nameCache.put(advancement.holder().id(), advancement.advancement());
     }
 
     @Override
-    public void onRemoveAdvancementTask(Advancement advancement) {
-      this.progress.remove(advancement);
-      this.nameCache.remove(advancement.getId());
+    public void onRemoveAdvancementTask(AdvancementNode advancement) {
+      this.progress.remove(advancement.advancement());
+      this.nameCache.remove(advancement.holder().id());
     }
 
     @Override

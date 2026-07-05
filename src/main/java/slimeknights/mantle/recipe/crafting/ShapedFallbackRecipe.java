@@ -1,22 +1,25 @@
 package slimeknights.mantle.recipe.crafting;
 
-import com.google.gson.JsonObject;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.NonNullList;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.core.HolderLookup;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingBookCategory;
+import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import net.minecraft.world.item.crafting.ShapedRecipe;
+import net.minecraft.world.item.crafting.ShapedRecipePattern;
 import net.minecraft.world.item.crafting.ShapelessRecipe;
 import net.minecraft.world.level.Level;
-import slimeknights.mantle.data.loadable.Loadables;
 import slimeknights.mantle.recipe.MantleRecipes;
-import slimeknights.mantle.util.JsonHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,7 +44,7 @@ public class ShapedFallbackRecipe extends ShapedRecipe {
    * @param alternatives   List of recipe names to fail this match if they match
    */
   public ShapedFallbackRecipe(ResourceLocation id, String group, CraftingBookCategory category, int width, int height, NonNullList<Ingredient> ingredients, ItemStack output, List<ResourceLocation> alternatives) {
-    super(id, group, category, width, height, ingredients, output);
+    super(group, category, new ShapedRecipePattern(width, height, ingredients, Optional.empty()), output);
     this.alternatives = alternatives;
   }
 
@@ -51,12 +54,12 @@ public class ShapedFallbackRecipe extends ShapedRecipe {
    * @param alternatives  List of recipe names to fail this match if they match
    */
   public ShapedFallbackRecipe(ShapedRecipe base, List<ResourceLocation> alternatives) {
-    super(base.getId(), base.getGroup(), base.category(), base.getWidth(), base.getHeight(), base.getIngredients(), base.result, base.showNotification());
+    super(base.getGroup(), base.category(), base.pattern, base.getResultItem((HolderLookup.Provider)null), base.showNotification());
     this.alternatives = alternatives;
   }
 
   @Override
-  public boolean matches(CraftingContainer inv, Level world) {
+  public boolean matches(CraftingInput inv, Level world) {
     // if this recipe does not match, fail it
     if (!super.matches(inv, world)) {
       return false;
@@ -70,6 +73,7 @@ public class ShapedFallbackRecipe extends ShapedRecipe {
                                      .map(manager::byKey)
                                      .filter(Optional::isPresent)
                                      .map(Optional::get)
+                                     .map(RecipeHolder::value)
                                      .filter(recipe -> {
                                        // only allow exact shaped or shapeless match, prevent infinite recursion due to complex recipes
                                        Class<?> clazz = recipe.getClass();
@@ -86,36 +90,37 @@ public class ShapedFallbackRecipe extends ShapedRecipe {
     return MantleRecipes.CRAFTING_SHAPED_FALLBACK.get();
   }
 
-  public static class Serializer extends ShapedRecipe.Serializer {
+  public static class Serializer implements RecipeSerializer<ShapedFallbackRecipe> {
+    private static final MapCodec<ShapedFallbackRecipe> CODEC = RecordCodecBuilder.mapCodec(instance -> instance.group(
+      ShapedRecipe.Serializer.CODEC.forGetter(recipe -> recipe),
+      ResourceLocation.CODEC.listOf().fieldOf("alternatives").forGetter(recipe -> recipe.alternatives)
+    ).apply(instance, ShapedFallbackRecipe::new));
+    private static final StreamCodec<RegistryFriendlyByteBuf,ShapedFallbackRecipe> STREAM_CODEC = StreamCodec.of(
+      (buffer, recipe) -> {
+        ShapedRecipe.Serializer.STREAM_CODEC.encode(buffer, recipe);
+        buffer.writeVarInt(recipe.alternatives.size());
+        for (ResourceLocation alternative : recipe.alternatives) {
+          buffer.writeResourceLocation(alternative);
+        }
+      },
+      buffer -> {
+        ShapedRecipe base = ShapedRecipe.Serializer.STREAM_CODEC.decode(buffer);
+        int size = buffer.readVarInt();
+        List<ResourceLocation> alternatives = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+          alternatives.add(buffer.readResourceLocation());
+        }
+        return new ShapedFallbackRecipe(base, List.copyOf(alternatives));
+      });
+
     @Override
-    public ShapedFallbackRecipe fromJson(ResourceLocation id, JsonObject json) {
-      ShapedRecipe base = super.fromJson(id, json);
-      List<ResourceLocation> alternatives = JsonHelper.parseList(json, "alternatives", Loadables.RESOURCE_LOCATION);
-      return new ShapedFallbackRecipe(base, alternatives);
+    public MapCodec<ShapedFallbackRecipe> codec() {
+      return CODEC;
     }
 
     @Override
-    public ShapedFallbackRecipe fromNetwork(ResourceLocation id, FriendlyByteBuf buffer) {
-      ShapedRecipe base = super.fromNetwork(id, buffer);
-      int size = buffer.readVarInt();
-      List<ResourceLocation> builder = new ArrayList<>(size);
-      for (int i = 0; i < size; i++) {
-        builder.add(buffer.readResourceLocation());
-      }
-      return new ShapedFallbackRecipe(base, List.copyOf(builder));
-    }
-
-    @Override
-    public void toNetwork(FriendlyByteBuf buffer, ShapedRecipe recipe) {
-      // write base recipe
-      super.toNetwork(buffer, recipe);
-      // write extra data
-      assert recipe instanceof ShapedFallbackRecipe;
-      List<ResourceLocation> alternatives = ((ShapedFallbackRecipe) recipe).alternatives;
-      buffer.writeVarInt(alternatives.size());
-      for (ResourceLocation alternative : alternatives) {
-        buffer.writeResourceLocation(alternative);
-      }
+    public StreamCodec<RegistryFriendlyByteBuf,ShapedFallbackRecipe> streamCodec() {
+      return STREAM_CODEC;
     }
   }
 }

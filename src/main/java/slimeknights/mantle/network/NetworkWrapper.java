@@ -2,36 +2,39 @@ package slimeknights.mantle.network;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraftforge.common.util.FakePlayer;
-import net.minecraftforge.network.NetworkDirection;
-import net.minecraftforge.network.NetworkEvent;
-import net.minecraftforge.network.NetworkRegistry;
-import net.minecraftforge.network.PacketDistributor;
-import net.minecraftforge.network.simple.SimpleChannel;
+import net.minecraft.world.level.ChunkPos;
+import net.neoforged.neoforge.common.util.FakePlayer;
+import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 import slimeknights.mantle.Mantle;
 import slimeknights.mantle.network.packet.ISimplePacket;
 
-import javax.annotation.Nullable;
-import java.util.Optional;
-import java.util.function.BiConsumer;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
- * A small network implementation/wrapper using AbstractPackets instead of IMessages.
- * Instantiate in your mod class and register your packets accordingly.
+ * A small network implementation/wrapper using Mantle packets inside a NeoForge custom payload.
  */
 @SuppressWarnings({"unused", "WeakerAccess"})
 public class NetworkWrapper {
-  /** Network instance */
-  public final SimpleChannel network;
+  /** Compatibility shim for old call sites using {@code INSTANCE.network.sendToServer(packet)}. */
+  public final Sender network = new Sender();
+  private final CustomPacketPayload.Type<WrappedPayload> payloadType;
+  private final String version;
+  private final Map<Integer, Registration<? extends ISimplePacket>> byId = new HashMap<>();
+  private final Map<Class<?>, Integer> byClass = new HashMap<>();
   private int id = 0;
 
   /**
@@ -45,52 +48,31 @@ public class NetworkWrapper {
   }
 
   public NetworkWrapper(ResourceLocation channelName, String version) {
-    this.network = NetworkRegistry.ChannelBuilder
-      .named(channelName)
-      .clientAcceptedVersions(version::equals)
-      .serverAcceptedVersions(version::equals)
-      .networkProtocolVersion(() -> version)
-      .simpleChannel();
+    this.payloadType = new CustomPacketPayload.Type<>(channelName);
+    this.version = version;
+  }
+
+  /** Registers the payload wrapper with NeoForge. */
+  public void registerPayload(RegisterPayloadHandlersEvent event) {
+    PayloadRegistrar registrar = event.registrar(payloadType.id().getNamespace()).versioned(version);
+    registrar.playBidirectional(payloadType, StreamCodec.ofMember(WrappedPayload::encode, this::decode), this::handle);
   }
 
   /**
    * Registers a new {@link ISimplePacket}
    * @param clazz    Packet class
    * @param decoder  Packet decoder, typically the constructor
+   * @param direction Ignored, kept for source compatibility.
    * @param <MSG>  Packet class type
    */
-  public <MSG extends ISimplePacket> void registerPacket(Class<MSG> clazz, Function<FriendlyByteBuf, MSG> decoder, @Nullable NetworkDirection direction) {
-    registerPacket(clazz, ISimplePacket::encode, decoder, ISimplePacket::handle, direction);
-  }
-
-  /**
-   * Registers a new generic packet
-   * @param clazz      Packet class
-   * @param encoder    Encodes a packet to the buffer
-   * @param decoder    Packet decoder, typically the constructor
-   * @param consumer   Logic to handle a packet
-   * @param direction  Network direction for validation. Pass null for no direction
-   * @param <MSG>  Packet class type
-   */
-  public <MSG> void registerPacket(Class<MSG> clazz, BiConsumer<MSG, FriendlyByteBuf> encoder, Function<FriendlyByteBuf, MSG> decoder, BiConsumer<MSG,Supplier<NetworkEvent.Context>> consumer, @Nullable NetworkDirection direction) {
-    registerPacketNoLogger(clazz, encoder, wrapLogger(clazz, decoder), consumer, direction);
-  }
-
-  /**
-   * Registers a new packet without the automatic logging if the decoder fails
-   * @param clazz      Packet class
-   * @param encoder    Encodes a packet to the buffer
-   * @param decoder    Packet decoder, typically the constructor
-   * @param consumer   Logic to handle a packet
-   * @param direction  Network direction for validation. Pass null for no direction
-   * @param <MSG>  Packet class type
-   */
-  public <MSG> void registerPacketNoLogger(Class<MSG> clazz, BiConsumer<MSG, FriendlyByteBuf> encoder, Function<FriendlyByteBuf, MSG> decoder, BiConsumer<MSG,Supplier<NetworkEvent.Context>> consumer, @Nullable NetworkDirection direction) {
-    this.network.registerMessage(this.id++, clazz, encoder, decoder, consumer, Optional.ofNullable(direction));
+  public <MSG extends ISimplePacket> void registerPacket(Class<MSG> clazz, Function<FriendlyByteBuf, MSG> decoder, PacketDirection direction) {
+    int nextId = this.id++;
+    byId.put(nextId, new Registration<>(clazz, wrapLogger(clazz, decoder)));
+    byClass.put(clazz, nextId);
   }
 
   /** Wraps the given decoder function */
-  private static <MSG> Function<FriendlyByteBuf,MSG> wrapLogger(Class<MSG> clazz, Function<FriendlyByteBuf,MSG> decoder) {
+  private static <MSG extends ISimplePacket> Function<FriendlyByteBuf,MSG> wrapLogger(Class<MSG> clazz, Function<FriendlyByteBuf,MSG> decoder) {
     return buffer -> {
       try {
         return decoder.apply(buffer);
@@ -101,6 +83,27 @@ public class NetworkWrapper {
     };
   }
 
+  private WrappedPayload decode(RegistryFriendlyByteBuf buffer) {
+    int id = buffer.readVarInt();
+    Registration<? extends ISimplePacket> registration = byId.get(id);
+    if (registration == null) {
+      throw new IllegalArgumentException("Unknown Mantle packet ID " + id);
+    }
+    return new WrappedPayload(id, registration.decoder.apply(buffer));
+  }
+
+  private void handle(WrappedPayload payload, IPayloadContext context) {
+    payload.packet.handle(context);
+  }
+
+  private WrappedPayload wrap(ISimplePacket packet) {
+    Integer id = byClass.get(packet.getClass());
+    if (id == null) {
+      throw new IllegalArgumentException("Unregistered Mantle packet " + packet.getClass().getName());
+    }
+    return new WrappedPayload(id, packet);
+  }
+
 
   /* Sending packets */
 
@@ -108,17 +111,8 @@ public class NetworkWrapper {
    * Sends a packet to the server
    * @param msg  Packet to send
    */
-  public void sendToServer(Object msg) {
-    this.network.sendToServer(msg);
-  }
-
-  /**
-   * Sends a packet to the given packet distributor
-   * @param target   Packet target
-   * @param message  Packet to send
-   */
-  public void send(PacketDistributor.PacketTarget target, Object message) {
-    network.send(target, message);
+  public void sendToServer(ISimplePacket msg) {
+    PacketDistributor.sendToServer(wrap(msg));
   }
 
   /**
@@ -137,9 +131,9 @@ public class NetworkWrapper {
    * @param msg     Packet
    * @param player  Player to send
    */
-  public void sendTo(Object msg, Player player) {
-    if (player instanceof ServerPlayer) {
-      sendTo(msg, (ServerPlayer) player);
+  public void sendTo(ISimplePacket msg, Player player) {
+    if (player instanceof ServerPlayer serverPlayer) {
+      sendTo(msg, serverPlayer);
     }
   }
 
@@ -148,9 +142,9 @@ public class NetworkWrapper {
    * @param msg     Packet
    * @param player  Player to send
    */
-  public void sendTo(Object msg, ServerPlayer player) {
+  public void sendTo(ISimplePacket msg, ServerPlayer player) {
     if (!(player instanceof FakePlayer)) {
-      network.sendTo(msg, player.connection.connection, NetworkDirection.PLAY_TO_CLIENT);
+      PacketDistributor.sendToPlayer(player, wrap(msg));
     }
   }
 
@@ -160,9 +154,8 @@ public class NetworkWrapper {
    * @param serverWorld  World instance
    * @param position     Position within range
    */
-  public void sendToClientsAround(Object msg, ServerLevel serverWorld, BlockPos position) {
-    LevelChunk chunk = serverWorld.getChunkAt(position);
-    network.send(PacketDistributor.TRACKING_CHUNK.with(() -> chunk), msg);
+  public void sendToClientsAround(ISimplePacket msg, ServerLevel serverWorld, BlockPos position) {
+    PacketDistributor.sendToPlayersTrackingChunk(serverWorld, new ChunkPos(position), wrap(msg));
   }
 
   /**
@@ -170,8 +163,8 @@ public class NetworkWrapper {
    * @param msg     Packet
    * @param entity  Entity to check
    */
-  public void sendToTrackingAndSelf(Object msg, Entity entity) {
-    this.network.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> entity), msg);
+  public void sendToTrackingAndSelf(ISimplePacket msg, Entity entity) {
+    PacketDistributor.sendToPlayersTrackingEntityAndSelf(entity, wrap(msg));
   }
 
   /**
@@ -179,7 +172,34 @@ public class NetworkWrapper {
    * @param msg     Packet
    * @param entity  Entity to check
    */
-  public void sendToTracking(Object msg, Entity entity) {
-    this.network.send(PacketDistributor.TRACKING_ENTITY.with(() -> entity), msg);
+  public void sendToTracking(ISimplePacket msg, Entity entity) {
+    PacketDistributor.sendToPlayersTrackingEntity(entity, wrap(msg));
+  }
+
+  /** Packet direction kept for registration readability. */
+  public enum PacketDirection {
+    PLAY_TO_CLIENT,
+    PLAY_TO_SERVER
+  }
+
+  /** Compatibility sender for old {@code network.sendToServer(packet)} call sites. */
+  public class Sender {
+    public void sendToServer(ISimplePacket msg) {
+      NetworkWrapper.this.sendToServer(msg);
+    }
+  }
+
+  private record Registration<MSG extends ISimplePacket>(Class<MSG> clazz, Function<FriendlyByteBuf, MSG> decoder) {}
+
+  private record WrappedPayload(int id, ISimplePacket packet) implements CustomPacketPayload {
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+      return MantleNetwork.INSTANCE.payloadType;
+    }
+
+    public void encode(RegistryFriendlyByteBuf buffer) {
+      buffer.writeVarInt(id);
+      packet.encode(buffer);
+    }
   }
 }

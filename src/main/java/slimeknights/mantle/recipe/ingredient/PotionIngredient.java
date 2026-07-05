@@ -1,22 +1,23 @@
 package slimeknights.mantle.recipe.ingredient;
 
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.alchemy.Potion;
-import net.minecraft.world.item.alchemy.PotionUtils;
+import slimeknights.mantle.util.PotionHelper;
 import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.ItemLike;
-import net.minecraftforge.common.crafting.IIngredientSerializer;
+import net.neoforged.neoforge.common.crafting.IngredientType;
+import slimeknights.mantle.Mantle;
 import org.jetbrains.annotations.Nullable;
 import slimeknights.mantle.data.loadable.Loadables;
 import slimeknights.mantle.data.loadable.record.RecordLoadable;
 import slimeknights.mantle.recipe.helper.LoadableIngredientSerializer;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -25,17 +26,14 @@ public class PotionIngredient extends ItemIngredient {
   /** Ingredient serializer instance */
   public static final LoadableIngredientSerializer<PotionIngredient> SERIALIZER = new LoadableIngredientSerializer<>(RecordLoadable.create(
     ItemsField.INSTANCE, TAG_FIELD,
-    Loadables.POTION.defaultField("potion", Potions.EMPTY, false, i -> i.potion),
+    Loadables.POTION.defaultField("potion", Potions.WATER.value(), false, i -> i.potion),
     PotionIngredient::new
   ));
+  public static final IngredientType<PotionIngredient> TYPE = new IngredientType<>(SERIALIZER.codec());
 
   private final Potion potion;
   protected PotionIngredient(List<Item> items, @Nullable TagKey<Item> itemTag, Potion potion) {
-    // potion is added in directly to the parent value stream
-    super(items, itemTag, Stream.concat(
-      items.stream().map(item -> new ItemValue(PotionUtils.setPotion(new ItemStack(item), potion))),
-      Stream.ofNullable(itemTag).map(tag -> new PotionTagValue(tag, potion)))
-    );
+    super(items, itemTag);
     this.potion = potion;
   }
 
@@ -57,7 +55,7 @@ public class PotionIngredient extends ItemIngredient {
   @Override
   public boolean test(@Nullable ItemStack stack) {
     // stack must match, any item must match, and potion must match
-    return stack != null && super.test(stack) && PotionUtils.getPotion(stack) == potion;
+    return stack != null && super.test(stack) && PotionHelper.getPotion(stack) == potion;
   }
 
   @Override
@@ -66,28 +64,18 @@ public class PotionIngredient extends ItemIngredient {
   }
 
   @Override
-  public IIngredientSerializer<? extends Ingredient> getSerializer() {
-    return SERIALIZER;
+  public IngredientType<?> getType() {
+    return TYPE;
+  }
+
+  public JsonElement toJson() {
+    JsonObject json = SERIALIZER.serialize(this);
+    json.addProperty("type", Mantle.getResource("potion").toString());
+    return json;
   }
 
   @Override
-  public JsonElement toJson() {
-    return SERIALIZER.serialize(this);
-  }
-
-  /** Tag value that sets the potion on each returned item */
-  private static class PotionTagValue extends TagValue {
-    private final Potion potion;
-    public PotionTagValue(TagKey<Item> tag, Potion potion) {
-      super(tag);
-      this.potion = potion;
-    }
-
-    @Override
-    public Collection<ItemStack> getItems() {
-      return super.getItems().stream()
-        .map(item -> PotionUtils.setPotion(item, potion))
-        .toList();
-    }
+  public Stream<ItemStack> getItems() {
+    return super.getItems().map(item -> PotionHelper.setPotion(item, potion));
   }
 }

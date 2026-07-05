@@ -1,10 +1,18 @@
 package slimeknights.mantle.recipe.helper;
 
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.mojang.datafixers.util.Pair;
+import com.mojang.serialization.DataResult;
+import com.mojang.serialization.DynamicOps;
+import com.mojang.serialization.JsonOps;
+import com.mojang.serialization.MapCodec;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
@@ -25,6 +33,8 @@ import java.util.function.Supplier;
  */
 @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 public class LoadableRecipeSerializer<T extends Recipe<?>> implements LoggingRecipeSerializer<T> {
+  /** Dummy ID for codecs, as vanilla 1.21 supplies recipe IDs via RecipeHolder instead of serializers. */
+  private static final ResourceLocation CODEC_ID = ResourceLocation.fromNamespaceAndPath(Mantle.modId, "unknown_recipe");
   /** Context key to use if you want the recipe serializer passed into your recipe */
   public static final ContextKey<RecipeSerializer<?>> SERIALIZER = new ContextKey<>("serializer");
   /** Context key to use if you want a type aware serializer in the recipe, requires {@link #of(RecordLoadable, Supplier)} for your serializer. */
@@ -57,9 +67,13 @@ public class LoadableRecipeSerializer<T extends Recipe<?>> implements LoggingRec
     return TypedMapBuilder.builder().put(ContextKey.ID, id).put(ContextKey.DEBUG, "Recipe " + id).put(SERIALIZER, this);
   }
 
-  @Override
   public T fromJson(ResourceLocation id, JsonObject json) {
     return loadable.deserialize(json, buildContext(id).build());
+  }
+
+  @Override
+  public MapCodec<T> codec() {
+    return MapCodec.assumeMapUnsafe(new RecipeLoadableCodec<>(this, loadable));
   }
 
   @Override
@@ -67,15 +81,9 @@ public class LoadableRecipeSerializer<T extends Recipe<?>> implements LoggingRec
     return loadable.decode(buffer, buildContext(id).build());
   }
 
-  @Nullable
   @Override
-  public T fromNetwork(ResourceLocation id, FriendlyByteBuf buffer) {
-    try {
-      return fromNetworkSafe(id, buffer);
-    } catch (RuntimeException e) {
-      Mantle.logger.error("{}: Error reading recipe {} from packet using loadable {}", this.getClass().getSimpleName(), id, loadable, e);
-      throw e;
-    }
+  public StreamCodec<RegistryFriendlyByteBuf, T> streamCodec() {
+    return StreamCodec.of(this::toNetworkSafe, buffer -> fromNetworkSafe(CODEC_ID, buffer));
   }
 
   @Override
@@ -100,15 +108,9 @@ public class LoadableRecipeSerializer<T extends Recipe<?>> implements LoggingRec
       return type.get();
     }
 
-    @Nullable
     @Override
-    public T fromNetwork(ResourceLocation id, FriendlyByteBuf buffer) {
-      try {
-        return fromNetworkSafe(id, buffer);
-      } catch (RuntimeException e) {
-        Mantle.logger.error("{}: Error reading recipe {} of type {} from packet using loadable {}", this.getClass().getSimpleName(), id, getType(), loadable, e);
-        throw e;
-      }
+    public StreamCodec<RegistryFriendlyByteBuf, T> streamCodec() {
+      return StreamCodec.of(this::toNetworkSafe, buffer -> fromNetworkSafe(CODEC_ID, buffer));
     }
   }
 
@@ -123,8 +125,33 @@ public class LoadableRecipeSerializer<T extends Recipe<?>> implements LoggingRec
     @Override
     public T fromJson(ResourceLocation id, JsonObject json) {
       T recipe = super.fromJson(id, json);
-      Mantle.logger.warn("Using deprecated recipe serializer {} for recipe {}, {}", BuiltInRegistries.RECIPE_SERIALIZER.getKey(this), recipe.getId(), replacement);
+      Mantle.logger.warn("Using deprecated recipe serializer {} for recipe {}, {}", BuiltInRegistries.RECIPE_SERIALIZER.getKey(this), id, replacement);
       return recipe;
+    }
+  }
+
+  private record RecipeLoadableCodec<T extends Recipe<?>>(LoadableRecipeSerializer<T> serializer, RecordLoadable<T> loadable) implements com.mojang.serialization.Codec<T> {
+    @Override
+    public <O> DataResult<Pair<T,O>> decode(DynamicOps<O> ops, O input) {
+      try {
+        JsonObject json = ops.convertTo(JsonOps.INSTANCE, input).getAsJsonObject();
+        return DataResult.success(Pair.of(loadable.deserialize(json, serializer.buildContext(CODEC_ID).build()), input));
+      } catch (JsonParseException | IllegalStateException e) {
+        Mantle.logger.warn("Unable to decode recipe using loadable {}", loadable, e);
+        return DataResult.error(e::getMessage);
+      }
+    }
+
+    @Override
+    public <O> DataResult<O> encode(T input, DynamicOps<O> ops, O prefix) {
+      try {
+        JsonObject json = new JsonObject();
+        loadable.serialize(input, json);
+        return DataResult.success(JsonOps.INSTANCE.convertTo(ops, json));
+      } catch (JsonParseException | IllegalStateException e) {
+        Mantle.logger.warn("Unable to encode recipe using loadable {}", loadable, e);
+        return DataResult.error(e::getMessage);
+      }
     }
   }
 }

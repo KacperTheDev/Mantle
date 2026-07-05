@@ -3,17 +3,19 @@ package slimeknights.mantle.recipe.data;
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.data.recipes.FinishedRecipe;
+import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.ItemLike;
 import net.minecraft.world.level.material.Fluid;
-import net.minecraftforge.common.crafting.conditions.ICondition;
-import net.minecraftforge.registries.RegistryObject;
+import net.neoforged.neoforge.common.conditions.ICondition;
+import net.neoforged.neoforge.registries.DeferredHolder;
 import slimeknights.mantle.Mantle;
 import slimeknights.mantle.recipe.condition.TagFilledCondition;
+import slimeknights.mantle.recipe.helper.FinishedRecipe;
+import slimeknights.mantle.recipe.helper.FinishedRecipeOutput;
 import slimeknights.mantle.registration.object.IdAwareObject;
 
 import java.util.Objects;
@@ -35,7 +37,7 @@ public interface IRecipeHelper {
    * @return  Location for the mod
    */
   default ResourceLocation location(String name) {
-    return new ResourceLocation(getModId(), name);
+    return ResourceLocation.fromNamespaceAndPath(getModId(), name);
   }
 
   /**
@@ -95,7 +97,7 @@ public interface IRecipeHelper {
    * @param suffix    Path suffix
    * @return  Location with the given prefix and suffix
    */
-  default ResourceLocation wrap(RegistryObject<?> location, String prefix, String suffix) {
+  default ResourceLocation wrap(DeferredHolder<?, ?> location, String prefix, String suffix) {
     return wrap(location.getId(), prefix, suffix);
   }
 
@@ -105,7 +107,7 @@ public interface IRecipeHelper {
    * @param prefix    Path prefix
    * @return  Location with the given prefix
    */
-  default ResourceLocation prefix(RegistryObject<?> location, String prefix) {
+  default ResourceLocation prefix(DeferredHolder<?, ?> location, String prefix) {
     return prefix(location.getId(), prefix);
   }
 
@@ -115,7 +117,7 @@ public interface IRecipeHelper {
    * @param suffix    Path suffix
    * @return  Location with the given suffix
    */
-  default ResourceLocation suffix(RegistryObject<?> location, String suffix) {
+  default ResourceLocation suffix(DeferredHolder<?, ?> location, String suffix) {
     return suffix(location.getId(), suffix);
   }
 
@@ -163,7 +165,7 @@ public interface IRecipeHelper {
    * @return  Tag instance
    */
   default TagKey<Item> getItemTag(String modId, String name) {
-    return TagKey.create(Registries.ITEM, new ResourceLocation(modId, name));
+    return TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath(modId, name));
   }
 
   /**
@@ -173,7 +175,7 @@ public interface IRecipeHelper {
    * @return  Tag instance
    */
   default TagKey<Fluid> getFluidTag(String modId, String name) {
-    return TagKey.create(Registries.FLUID, new ResourceLocation(modId, name));
+    return TagKey.create(Registries.FLUID, ResourceLocation.fromNamespaceAndPath(modId, name));
   }
 
   /**
@@ -197,5 +199,10 @@ public interface IRecipeHelper {
       builder.addCondition(condition);
     }
     return builder.build(consumer);
+  }
+
+  /** Wraps Mantle's legacy finished recipe consumer for vanilla's 1.21 recipe builders. */
+  default RecipeOutput output(Consumer<FinishedRecipe> consumer) {
+    return new FinishedRecipeOutput(consumer, recipe -> recipe);
   }
 }

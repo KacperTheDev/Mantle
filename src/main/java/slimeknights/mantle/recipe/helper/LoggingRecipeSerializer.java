@@ -1,6 +1,8 @@
 package slimeknights.mantle.recipe.helper;
 
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
@@ -13,6 +15,9 @@ import javax.annotation.Nullable;
  * @param <T>  Recipe class
  */
 public interface LoggingRecipeSerializer<T extends Recipe<?>> extends RecipeSerializer<T> {
+  /** Dummy ID for codecs, as vanilla 1.21 supplies recipe IDs via RecipeHolder instead of serializers. */
+  ResourceLocation CODEC_ID = ResourceLocation.fromNamespaceAndPath("mantle", "unknown_recipe");
+
   /**
    * Read the recipe from the packet
    * @param id      Recipe ID
@@ -32,7 +37,6 @@ public interface LoggingRecipeSerializer<T extends Recipe<?>> extends RecipeSeri
   void toNetworkSafe(FriendlyByteBuf buffer, T recipe);
 
   @Nullable
-  @Override
   default T fromNetwork(ResourceLocation id, FriendlyByteBuf buffer) {
     try {
       return fromNetworkSafe(id, buffer);
@@ -42,13 +46,17 @@ public interface LoggingRecipeSerializer<T extends Recipe<?>> extends RecipeSeri
     }
   }
 
-  @Override
   default void toNetwork(FriendlyByteBuf buffer, T recipe) {
     try {
       toNetworkSafe(buffer, recipe);
     } catch (RuntimeException e) {
-      Mantle.logger.error("{}: Error writing recipe {} of class {} and type {} to packet", this.getClass().getSimpleName(), recipe.getId(), recipe.getClass().getSimpleName(), recipe.getType(), e);
+      Mantle.logger.error("{}: Error writing recipe of class {} and type {} to packet", this.getClass().getSimpleName(), recipe.getClass().getSimpleName(), recipe.getType(), e);
       throw e;
     }
+  }
+
+  @Override
+  default StreamCodec<RegistryFriendlyByteBuf, T> streamCodec() {
+    return StreamCodec.of(this::toNetwork, buffer -> fromNetwork(CODEC_ID, buffer));
   }
 }

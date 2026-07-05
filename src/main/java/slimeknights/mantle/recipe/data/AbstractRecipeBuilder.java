@@ -1,19 +1,19 @@
 package slimeknights.mantle.recipe.data;
 
 import com.google.gson.JsonObject;
+import com.mojang.serialization.JsonOps;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.minecraft.advancements.Advancement;
 import net.minecraft.advancements.AdvancementRewards;
+import net.minecraft.advancements.AdvancementRequirements;
 import net.minecraft.advancements.Criterion;
-import net.minecraft.advancements.CriterionTriggerInstance;
-import net.minecraft.advancements.RequirementsStrategy;
 import net.minecraft.advancements.critereon.RecipeUnlockedTrigger;
-import net.minecraft.data.recipes.FinishedRecipe;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import slimeknights.mantle.data.loadable.record.RecordLoadable;
+import slimeknights.mantle.recipe.helper.FinishedRecipe;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -27,6 +27,8 @@ import java.util.function.Consumer;
 public abstract class AbstractRecipeBuilder<T extends AbstractRecipeBuilder<T>> {
   /** Advancement builder for this class */
   protected final Advancement.Builder advancementBuilder = Advancement.Builder.advancement();
+  /** If true, the advancement builder has user-defined criteria. */
+  private boolean hasCriteria = false;
   /** Group for this recipe */
   @Nonnull
   protected String group = "";
@@ -38,8 +40,9 @@ public abstract class AbstractRecipeBuilder<T extends AbstractRecipeBuilder<T>> 
    * @return  Builder
    */
   @SuppressWarnings("unchecked")
-  public T unlockedBy(String name, CriterionTriggerInstance criteria) {
+  public T unlockedBy(String name, Criterion<?> criteria) {
     this.advancementBuilder.addCriterion(name, criteria);
+    this.hasCriteria = true;
     return (T)this;
   }
 
@@ -88,13 +91,13 @@ public abstract class AbstractRecipeBuilder<T extends AbstractRecipeBuilder<T>> 
    */
   private ResourceLocation buildAdvancementInternal(ResourceLocation id, String folder) {
     this.advancementBuilder
-        .parent(new ResourceLocation("recipes/root"))
+        .parent(ResourceLocation.parse("recipes/root"))
         .rewards(AdvancementRewards.Builder.recipe(id))
-        .requirements(RequirementsStrategy.OR);
+        .requirements(AdvancementRequirements.Strategy.OR);
     // we directly add the critera through the map as we want to replace it if already added instead of erroring
     // the rest of these setters all replace our previous recipe data
-    this.advancementBuilder.criteria.put("has_the_recipe", new Criterion(RecipeUnlockedTrigger.unlocked(id)));
-    return new ResourceLocation(id.getNamespace(), "recipes/" + folder + "/" + id.getPath());
+    this.advancementBuilder.addCriterion("has_the_recipe", RecipeUnlockedTrigger.unlocked(id));
+    return ResourceLocation.fromNamespaceAndPath(id.getNamespace(), "recipes/" + folder + "/" + id.getPath());
   }
 
   /**
@@ -104,7 +107,7 @@ public abstract class AbstractRecipeBuilder<T extends AbstractRecipeBuilder<T>> 
    * @return Advancement ID
    */
   protected ResourceLocation buildAdvancement(ResourceLocation id, String folder) {
-    if (this.advancementBuilder.getCriteria().isEmpty()) {
+    if (!this.hasCriteria) {
       throw new IllegalStateException("No way of obtaining recipe " + id);
     }
     return buildAdvancementInternal(id, folder);
@@ -119,7 +122,7 @@ public abstract class AbstractRecipeBuilder<T extends AbstractRecipeBuilder<T>> 
   @SuppressWarnings("SameParameterValue")  // API
   @Nullable
   protected ResourceLocation buildOptionalAdvancement(ResourceLocation id, String folder) {
-    if (this.advancementBuilder.getCriteria().isEmpty()) {
+    if (!this.hasCriteria) {
       return null;
     }
     return buildAdvancementInternal(id, folder);
@@ -139,7 +142,7 @@ public abstract class AbstractRecipeBuilder<T extends AbstractRecipeBuilder<T>> 
       if (advancementId == null) {
         return null;
       }
-      return advancementBuilder.serializeToJson();
+      return Advancement.CODEC.encodeStart(JsonOps.INSTANCE, advancementBuilder.build(advancementId).value()).getOrThrow().getAsJsonObject();
     }
   }
 
@@ -147,8 +150,8 @@ public abstract class AbstractRecipeBuilder<T extends AbstractRecipeBuilder<T>> 
   protected class LoadableFinishedRecipe<R extends Recipe<?>> extends AbstractFinishedRecipe {
     private final R recipe;
     private final RecordLoadable<R> loadable;
-    public LoadableFinishedRecipe(R recipe, RecordLoadable<R> loadable, @Nullable ResourceLocation advancementId) {
-      super(recipe.getId(), advancementId);
+    public LoadableFinishedRecipe(ResourceLocation id, R recipe, RecordLoadable<R> loadable, @Nullable ResourceLocation advancementId) {
+      super(id, advancementId);
       this.recipe = recipe;
       this.loadable = loadable;
     }

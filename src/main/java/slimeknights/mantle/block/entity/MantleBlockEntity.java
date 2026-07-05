@@ -1,6 +1,7 @@
 package slimeknights.mantle.block.entity;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.level.block.Block;
@@ -57,16 +58,21 @@ public class MantleBlockEntity extends BlockEntity {
    */
   protected void saveSynced(CompoundTag nbt) {}
 
-  @Override
-  public CompoundTag getUpdateTag() {
-    CompoundTag nbt = new CompoundTag();
+  /** Writes synced NBT with registry lookup access. */
+  protected void saveSynced(CompoundTag nbt, HolderLookup.Provider provider) {
     saveSynced(nbt);
+  }
+
+  @Override
+  public CompoundTag getUpdateTag(HolderLookup.Provider provider) {
+    CompoundTag nbt = new CompoundTag();
+    saveSynced(nbt, provider);
     return nbt;
   }
 
   @Override
-  public void saveAdditional(CompoundTag nbt) {
-    super.saveAdditional(nbt);
-    saveSynced(nbt);
+  public void saveAdditional(CompoundTag nbt, HolderLookup.Provider provider) {
+    super.saveAdditional(nbt, provider);
+    saveSynced(nbt, provider);
   }
 }

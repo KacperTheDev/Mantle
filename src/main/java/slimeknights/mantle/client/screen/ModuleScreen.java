@@ -37,6 +37,22 @@ public abstract class ModuleScreen<P extends MultiModuleScreen<?>, C extends Abs
     return this.topPos + this.imageHeight;
   }
 
+  public int guiLeft() {
+    return this.leftPos;
+  }
+
+  public int guiTop() {
+    return this.topPos;
+  }
+
+  public int guiWidth() {
+    return this.imageWidth;
+  }
+
+  public int guiHeight() {
+    return this.imageHeight;
+  }
+
   public Rect2i getArea() {
     return new Rect2i(this.leftPos, this.topPos, this.imageWidth, this.imageHeight);
   }

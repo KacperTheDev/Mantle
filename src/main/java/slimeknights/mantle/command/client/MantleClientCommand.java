@@ -3,6 +3,7 @@ package slimeknights.mantle.command.client;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
@@ -10,11 +11,12 @@ import net.minecraft.commands.synchronization.SuggestionProviders;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.FileToIdConverter;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraftforge.client.event.RegisterClientCommandsEvent;
-import net.minecraftforge.common.MinecraftForge;
+import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
+import net.neoforged.neoforge.common.NeoForge;
 import slimeknights.mantle.Mantle;
 import slimeknights.mantle.client.book.BookLoader;
 
+import java.util.List;
 import java.util.function.Consumer;
 
 /**
@@ -37,16 +39,15 @@ public class MantleClientCommand {
       SharedSuggestionProvider.suggest(BookLoader.getAllBooks().stream().map(ResourceLocation::getNamespace).distinct(), builder));
 
     // source command suggestions
-    FileToIdConverter atlases = new FileToIdConverter("textures/atlas", ".png");
     ClientSourcesCommand.registerMinecraft("atlases", (context, builder)
-      -> SharedSuggestionProvider.suggestResource(Minecraft.getInstance().getModelManager().atlases.atlases.keySet().stream().map(atlases::fileToId), builder));
+      -> SharedSuggestionProvider.suggestResource(List.of(TextureAtlas.LOCATION_BLOCKS), builder));
     ClientSourcesCommand.registerMinecraft("blockstates", (context, builder)
       -> SharedSuggestionProvider.suggestResource(BuiltInRegistries.BLOCK.keySet(), builder));
     ClientSourcesCommand.register("item_models", "models/item", ".json", (context, builder)
       -> SharedSuggestionProvider.suggestResource(BuiltInRegistries.ITEM.keySet(), builder));
 
     // add command listener
-    MinecraftForge.EVENT_BUS.addListener(MantleClientCommand::registerCommand);
+    NeoForge.EVENT_BUS.addListener(MantleClientCommand::registerCommand);
   }
 
   /** Registers a sub command for the root Mantle client command */

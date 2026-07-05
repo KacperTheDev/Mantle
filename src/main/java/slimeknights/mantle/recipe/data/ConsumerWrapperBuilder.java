@@ -3,12 +3,13 @@ package slimeknights.mantle.recipe.data;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.mojang.serialization.JsonOps;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.data.recipes.FinishedRecipe;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.RecipeSerializer;
-import net.minecraftforge.common.crafting.CraftingHelper;
-import net.minecraftforge.common.crafting.conditions.ICondition;
+import net.neoforged.neoforge.common.conditions.ICondition;
+import slimeknights.mantle.recipe.helper.FinishedRecipe;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -124,11 +125,7 @@ public class ConsumerWrapperBuilder {
     public void serializeRecipeData(JsonObject json) {
       // add conditions on top
       if (!conditions.isEmpty()) {
-        JsonArray conditionsArray = new JsonArray();
-        for (ICondition condition : conditions) {
-          conditionsArray.add(CraftingHelper.serialize(condition));
-        }
-        json.add("conditions", conditionsArray);
+        json.add("conditions", ICondition.LIST_CODEC.encodeStart(JsonOps.INSTANCE, conditions).getOrThrow(JsonParseException::new));
       }
       // serialize the normal recipe
       original.serializeRecipeData(json);

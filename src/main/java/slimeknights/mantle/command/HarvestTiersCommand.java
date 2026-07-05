@@ -14,9 +14,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
-import net.minecraft.world.item.Tier;
+import net.minecraft.world.item.Tiers;
 import net.minecraft.world.level.block.Block;
-import net.minecraftforge.common.TierSortingRegistry;
 import slimeknights.mantle.Mantle;
 
 import java.io.BufferedWriter;
@@ -24,13 +23,13 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 /** Command to dump global loot modifiers */
 public class HarvestTiersCommand {
   /** Resource location of the global loot manager "tag" */
-  protected static final ResourceLocation HARVEST_TIERS = new ResourceLocation("forge", "item_tier_ordering.json");
+  protected static final ResourceLocation HARVEST_TIERS = ResourceLocation.fromNamespaceAndPath("forge", "item_tier_ordering.json");
   /** Path for saving the loot modifiers */
   private static final String HARVEST_TIER_PATH = HARVEST_TIERS.getNamespace() + "/" + HARVEST_TIERS.getPath();
 
@@ -57,7 +56,7 @@ public class HarvestTiersCommand {
 
   /** Runs the command, dumping the tag */
   private static int list(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
-    List<Tier> sortedTiers = TierSortingRegistry.getSortedTiers();
+    List<Tiers> sortedTiers = sortedTiers();
 
     // start building output message
     MutableComponent output = Component.translatable("command.mantle.harvest_tiers.success_list");
@@ -65,10 +64,10 @@ public class HarvestTiersCommand {
     if (sortedTiers.isEmpty()) {
       output.append("\n* ").append(EMPTY);
     } else {
-      for (Tier tier : sortedTiers) {
+      for (Tiers tier : sortedTiers) {
         output.append("\n* ");
         TagKey<Block> tag = tier.getTag();
-        ResourceLocation id = TierSortingRegistry.getName(tier);
+        ResourceLocation id = getName(tier);
         if (tag != null) {
           output.append(Component.translatable("command.mantle.harvest_tiers.tag", id, getTagComponent(tag)));
         } else {
@@ -82,12 +81,12 @@ public class HarvestTiersCommand {
 
   /** Runs the command, dumping the tag */
   private static int run(CommandContext<CommandSourceStack> context, boolean saveFile) throws CommandSyntaxException {
-    List<Tier> sortedTiers = TierSortingRegistry.getSortedTiers();
+    List<Tiers> sortedTiers = sortedTiers();
 
     // save the list as JSON
     JsonArray entries = new JsonArray();
-    for (Tier location : sortedTiers) {
-      entries.add(Objects.requireNonNull(TierSortingRegistry.getName(location)).toString());
+    for (Tiers location : sortedTiers) {
+      entries.add(getName(location).toString());
     }
     JsonObject json = new JsonObject();
     json.add("order", entries);
@@ -113,5 +112,15 @@ public class HarvestTiersCommand {
     }
     // return a number to finish
     return sortedTiers.size();
+  }
+
+  /** Gets the known vanilla tier order. NeoForge 1.21 no longer exposes Forge's old tier sorting registry. */
+  private static List<Tiers> sortedTiers() {
+    return Arrays.asList(Tiers.values());
+  }
+
+  /** Gets the resource location for a vanilla tier. */
+  private static ResourceLocation getName(Tiers tier) {
+    return ResourceLocation.fromNamespaceAndPath("minecraft", tier.name().toLowerCase());
   }
 }
