@@ -161,6 +161,8 @@ public class BookScreen extends Screen {
       return;
     }
 
+    this.renderBackground(graphics, mouseX, mouseY, partialTicks);
+
     Font fontRenderer = getFontRenderer();
 
     if (debug) {
@@ -250,7 +252,9 @@ public class BookScreen extends Screen {
       }
     }
 
-    super.render(graphics, mouseX, mouseY, partialTicks);
+    for (var renderable : this.renderables) {
+      renderable.render(graphics, mouseX, mouseY, partialTicks);
+    }
   }
 
   private boolean shouldRenderPage(int pageNum, boolean rightSide) {
