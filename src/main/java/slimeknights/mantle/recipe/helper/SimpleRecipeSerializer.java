@@ -31,6 +31,9 @@ public record SimpleRecipeSerializer<T extends Recipe<?>>(Function<ResourceLocat
 
   @Override
   public StreamCodec<RegistryFriendlyByteBuf, T> streamCodec() {
-    return StreamCodec.unit(constructor.apply(CODEC_ID));
+    // These recipes carry no data of their own. StreamCodec.unit() is unsuitable here as its encoder
+    // only accepts the exact singleton instance captured when the codec is created. Recipes loaded from
+    // datapacks are distinct instances, so encoding them fails with "Can't encode ..., expected ...".
+    return StreamCodec.of((buffer, recipe) -> {}, buffer -> constructor.apply(CODEC_ID));
   }
 }

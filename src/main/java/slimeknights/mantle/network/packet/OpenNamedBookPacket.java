@@ -1,7 +1,7 @@
 package slimeknights.mantle.network.packet;
 
 import lombok.AllArgsConstructor;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -13,12 +13,12 @@ import slimeknights.mantle.command.client.BookCommand;
 public class OpenNamedBookPacket implements IThreadsafePacket {
   private final ResourceLocation book;
 
-  public OpenNamedBookPacket(FriendlyByteBuf buffer) {
+  public OpenNamedBookPacket(RegistryFriendlyByteBuf buffer) {
     this.book = buffer.readResourceLocation();
   }
 
   @Override
-  public void encode(FriendlyByteBuf buf) {
+  public void encode(RegistryFriendlyByteBuf buf) {
     buf.writeResourceLocation(book);
   }
 

@@ -10,7 +10,6 @@ import com.mojang.serialization.MapCodec;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.ResourceLocation;
@@ -72,12 +71,19 @@ public class LoadableRecipeSerializer<T extends Recipe<?>> implements LoggingRec
   }
 
   @Override
+  public JsonObject toJson(T recipe) {
+    JsonObject json = new JsonObject();
+    loadable.serialize(recipe, json);
+    return json;
+  }
+
+  @Override
   public MapCodec<T> codec() {
     return MapCodec.assumeMapUnsafe(new RecipeLoadableCodec<>(this, loadable));
   }
 
   @Override
-  public T fromNetworkSafe(ResourceLocation id, FriendlyByteBuf buffer) {
+  public T fromNetworkSafe(ResourceLocation id, RegistryFriendlyByteBuf buffer) {
     return loadable.decode(buffer, buildContext(id).build());
   }
 
@@ -87,7 +93,7 @@ public class LoadableRecipeSerializer<T extends Recipe<?>> implements LoggingRec
   }
 
   @Override
-  public void toNetworkSafe(FriendlyByteBuf buffer, T recipe) {
+  public void toNetworkSafe(RegistryFriendlyByteBuf buffer, T recipe) {
     loadable.encode(buffer, recipe);
   }
 

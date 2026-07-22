@@ -48,8 +48,12 @@ public record LootTableInjection(ResourceLocation name, List<LootPoolInjection> 
       if (pool != null) {
         try {
           @SuppressWarnings("unchecked")
-          List<LootPoolEntryContainer> poolEntries = (List<LootPoolEntryContainer>)LOOT_POOL_ENTRIES.get(pool);
+          List<LootPoolEntryContainer> currentEntries = (List<LootPoolEntryContainer>)LOOT_POOL_ENTRIES.get(pool);
+          // LootPool stores its decoded entries in an immutable list on 1.21. Copy it before injecting.
+          List<LootPoolEntryContainer> poolEntries = new ArrayList<>(currentEntries.size() + entries.length);
+          poolEntries.addAll(currentEntries);
           Collections.addAll(poolEntries, entries);
+          LOOT_POOL_ENTRIES.set(pool, poolEntries);
         } catch (IllegalAccessException e) {
           Mantle.logger.error("Failed to inject loot into {} pool {}", table.getLootTableId(), name, e);
         }

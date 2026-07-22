@@ -8,14 +8,21 @@ import net.minecraft.world.item.alchemy.Potion;
 import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.alchemy.Potions;
 
+import java.util.Optional;
+
 /** Helpers for the 1.21 potion data component. */
 public final class PotionHelper {
   private PotionHelper() {}
 
   /** Gets the potion stored on the given stack. */
   public static Potion getPotion(ItemStack stack) {
+    return getPotionHolder(stack).value();
+  }
+
+  /** Gets the potion holder stored on the given stack. */
+  public static Holder<Potion> getPotionHolder(ItemStack stack) {
     PotionContents contents = stack.getOrDefault(DataComponents.POTION_CONTENTS, PotionContents.EMPTY);
-    return contents.potion().orElse(Potions.WATER).value();
+    return contents.potion().orElse(Potions.WATER);
   }
 
   /** Sets the potion stored on the given stack. */

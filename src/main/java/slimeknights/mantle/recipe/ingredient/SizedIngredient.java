@@ -1,9 +1,12 @@
 package slimeknights.mantle.recipe.ingredient;
 
 import com.google.gson.JsonObject;
+import com.mojang.serialization.Codec;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -26,6 +29,13 @@ import java.util.stream.Collectors;
 public class SizedIngredient implements Predicate<ItemStack> {
   /** Empty sized ingredient wrapper. Matches only the empty stack of size 0 */
   public static final SizedIngredient EMPTY = of(Ingredient.EMPTY, 0);
+
+  /** Native 1.21.1 nested codec, exposed through Mantle's compatibility API. */
+  public static final Codec<SizedIngredient> NATIVE_CODEC = net.neoforged.neoforge.common.crafting.SizedIngredient.NESTED_CODEC
+    .xmap(SizedIngredient::fromNative, SizedIngredient::toNative);
+  /** Native 1.21.1 network codec, exposed through Mantle's compatibility API. */
+  public static final StreamCodec<RegistryFriendlyByteBuf,SizedIngredient> NATIVE_STREAM_CODEC =
+    net.neoforged.neoforge.common.crafting.SizedIngredient.STREAM_CODEC.map(SizedIngredient::fromNative, SizedIngredient::toNative);
 
   public static final RecordLoadable<SizedIngredient> LOADABLE = RecordLoadable.create(
     IngredientLoadable.DISALLOW_EMPTY.tryDirectField("ingredient", SizedIngredient::getIngredient, "amount_needed"),
@@ -51,6 +61,19 @@ public class SizedIngredient implements Predicate<ItemStack> {
    */
   public static SizedIngredient of(Ingredient ingredient) {
     return of(ingredient, 1);
+  }
+
+  /** Wraps NeoForge's native sized ingredient without changing its ingredient or required count. */
+  public static SizedIngredient fromNative(net.neoforged.neoforge.common.crafting.SizedIngredient ingredient) {
+    return of(ingredient.ingredient(), ingredient.count());
+  }
+
+  /** Converts this compatibility type to NeoForge's native sized ingredient. */
+  public net.neoforged.neoforge.common.crafting.SizedIngredient toNative() {
+    if (amountNeeded <= 0) {
+      throw new IllegalStateException("The special empty Mantle ingredient has no native positive-count representation");
+    }
+    return new net.neoforged.neoforge.common.crafting.SizedIngredient(ingredient, amountNeeded);
   }
 
   /**

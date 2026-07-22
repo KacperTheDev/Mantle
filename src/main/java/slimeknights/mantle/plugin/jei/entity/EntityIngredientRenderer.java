@@ -1,16 +1,13 @@
 package slimeknights.mantle.plugin.jei.entity;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
 import lombok.RequiredArgsConstructor;
 import mezz.jei.api.ingredients.IIngredientRenderer;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -19,6 +16,8 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
 import slimeknights.mantle.Mantle;
 import slimeknights.mantle.recipe.ingredient.EntityIngredient;
 
@@ -81,7 +80,10 @@ public class EntityIngredientRenderer implements IIngredientRenderer<EntityIngre
           }
           // catch exceptions drawing the entity to be safe, any caught exceptions blacklist the entity
           try {
-            InventoryScreen.renderEntityInInventoryFollowsMouse(graphics, size / 2, size, scale, 0, 10, 0, 0, 0, livingEntity);
+            // The 1.21 inventory helper added an absolute-screen scissor rectangle. JEI invokes ingredient
+            // renderers in a translated local pose, so using that helper clips the entity at the wrong place.
+            // Render through the lower-level helper instead, preserving the old local-coordinate behavior.
+            renderEntity(graphics, livingEntity, scale);
             return;
           } catch (Exception e) {
             Mantle.logger.error("Error drawing entity " + BuiltInRegistries.ENTITY_TYPE.getKey(type), e);
@@ -101,6 +103,33 @@ public class EntityIngredientRenderer implements IIngredientRenderer<EntityIngre
       int offset = (size - 16) / 2;
       graphics.blit(MISSING, offset, offset, 0, 0, 16, 16, 16, 16);
     }
+  }
+
+  /** Renders an entity in local JEI ingredient coordinates without enabling an absolute scissor. */
+  private void renderEntity(GuiGraphics graphics, LivingEntity entity, int scale) {
+    Quaternionf pose = new Quaternionf().rotateZ((float)Math.PI);
+    Quaternionf camera = new Quaternionf();
+
+    float oldBodyRot = entity.yBodyRot;
+    float oldYRot = entity.getYRot();
+    float oldXRot = entity.getXRot();
+    float oldHeadRotO = entity.yHeadRotO;
+    float oldHeadRot = entity.yHeadRot;
+    entity.yBodyRot = 180.0F;
+    entity.setYRot(180.0F);
+    entity.setXRot(0.0F);
+    entity.yHeadRot = 180.0F;
+    entity.yHeadRotO = 180.0F;
+
+    float entityScale = entity.getScale();
+    Vector3f offset = new Vector3f(0.0F, entity.getBbHeight() / 2.0F, 0.0F);
+    InventoryScreen.renderEntityInInventory(graphics, size / 2.0F, size / 2.0F, scale / entityScale, offset, pose, camera, entity);
+
+    entity.yBodyRot = oldBodyRot;
+    entity.setYRot(oldYRot);
+    entity.setXRot(oldXRot);
+    entity.yHeadRotO = oldHeadRotO;
+    entity.yHeadRot = oldHeadRot;
   }
 
   @Override

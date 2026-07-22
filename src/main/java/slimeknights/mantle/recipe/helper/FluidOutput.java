@@ -3,12 +3,18 @@ package slimeknights.mantle.recipe.helper;
 import com.google.gson.JsonObject;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.RegistryOps;
 import net.minecraft.world.level.material.Fluid;
 import net.neoforged.neoforge.fluids.FluidStack;
 import slimeknights.mantle.data.loadable.Loadables;
@@ -18,6 +24,10 @@ import slimeknights.mantle.data.loadable.field.LoadableField;
 import slimeknights.mantle.data.loadable.primitive.IntLoadable;
 import slimeknights.mantle.data.loadable.record.RecordLoadable;
 import slimeknights.mantle.util.typed.TypedMap;
+import slimeknights.mantle.util.RegistryAccessUtil;
+import slimeknights.mantle.data.loadable.field.ContextKey;
+
+import com.mojang.serialization.JsonOps;
 
 import javax.annotation.Nullable;
 import java.util.Optional;
@@ -107,7 +117,12 @@ public abstract class FluidOutput implements Supplier<FluidStack> {
    * @return Output
    */
   public static FluidOutput fromTag(TagKey<Fluid> tag, int amount, @Nullable CompoundTag nbt) {
-    return new OfTagPreference(tag, amount, nbt);
+    return new OfTagPreference(tag, amount, nbt, DataComponentPatch.EMPTY);
+  }
+
+  /** Creates a tag-preference output carrying an exact native component patch. */
+  public static FluidOutput fromTag(TagKey<Fluid> tag, int amount, DataComponentPatch components) {
+    return new OfTagPreference(tag, amount, null, components);
   }
 
   /**
@@ -117,7 +132,7 @@ public abstract class FluidOutput implements Supplier<FluidStack> {
    * @return Output
    */
   public static FluidOutput fromTag(TagKey<Fluid> tag, int amount) {
-    return fromTag(tag, amount, null);
+    return fromTag(tag, amount, (CompoundTag)null);
   }
 
   /**
@@ -184,7 +199,6 @@ public abstract class FluidOutput implements Supplier<FluidStack> {
   }
 
   /** Class for an output from a tag preference */
-  @RequiredArgsConstructor
   private static class OfTagPreference extends FluidOutput {
     @Getter
     private final TagKey<Fluid> tag;
@@ -192,7 +206,15 @@ public abstract class FluidOutput implements Supplier<FluidStack> {
     private final int amount;
     @Nullable
     private final CompoundTag nbt;
+    private final DataComponentPatch components;
     private FluidStack cachedResult = null;
+
+    private OfTagPreference(TagKey<Fluid> tag, int amount, @Nullable CompoundTag nbt, DataComponentPatch components) {
+      this.tag = tag;
+      this.amount = amount;
+      this.nbt = nbt;
+      this.components = components;
+    }
 
     @Override
     public FluidStack get() {
@@ -207,8 +229,22 @@ public abstract class FluidOutput implements Supplier<FluidStack> {
           return FluidStack.EMPTY;
         }
         cachedResult = new FluidStack(preference.orElseThrow(), amount);
-        if (nbt != null) {
-          cachedResult.set(DataComponents.CUSTOM_DATA, CustomData.of(nbt.copy()));
+        if (!components.isEmpty()) {
+          cachedResult.applyComponents(components);
+        } else if (nbt != null) {
+          CompoundTag remaining = nbt.copy();
+          String potionId = remaining.getString("Potion");
+          if (!potionId.isEmpty()) {
+            ResourceLocation id = ResourceLocation.tryParse(potionId);
+            if (id != null) {
+              BuiltInRegistries.POTION.getHolder(id).ifPresent(
+                potion -> cachedResult.set(DataComponents.POTION_CONTENTS, new PotionContents(potion)));
+            }
+            remaining.remove("Potion");
+          }
+          if (!remaining.isEmpty()) {
+            cachedResult.set(DataComponents.CUSTOM_DATA, CustomData.of(remaining));
+          }
         }
       }
       return cachedResult;
@@ -222,6 +258,10 @@ public abstract class FluidOutput implements Supplier<FluidStack> {
       json.addProperty("amount", amount);
       if (amount > 0 && nbt != null) {
         json.add("nbt", NBTLoadable.ALLOW_STRING.serialize(nbt));
+      }
+      if (amount > 0 && !components.isEmpty()) {
+        RegistryOps<com.google.gson.JsonElement> ops = RegistryOps.create(JsonOps.INSTANCE, RegistryAccessUtil.getRegistryAccess());
+        json.add("components", DataComponentPatch.CODEC.encodeStart(ops, components).getOrThrow());
       }
     }
   }
@@ -249,6 +289,18 @@ public abstract class FluidOutput implements Supplier<FluidStack> {
     @Override
     public FluidOutput deserialize(JsonObject json, TypedMap context) {
       if (json.has("tag")) {
+        if (json.has("components")) {
+          RegistryAccess access = context.get(ContextKey.REGISTRY_ACCESS);
+          if (access == null) {
+            access = RegistryAccessUtil.getRegistryAccess();
+          }
+          DataComponentPatch components = DataComponentPatch.CODEC.parse(
+            RegistryOps.create(JsonOps.INSTANCE, access), json.get("components")).getOrThrow();
+          return fromTag(
+            Loadables.FLUID_TAG.getIfPresent(json, "tag", context),
+            IntLoadable.FROM_ONE.getIfPresent(json, "amount", context),
+            components);
+        }
         return fromTag(
           Loadables.FLUID_TAG.getIfPresent(json, "tag", context),
           IntLoadable.FROM_ONE.getIfPresent(json, "amount", context),

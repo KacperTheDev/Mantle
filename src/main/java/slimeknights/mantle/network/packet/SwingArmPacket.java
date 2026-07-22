@@ -1,7 +1,7 @@
 package slimeknights.mantle.network.packet;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -19,13 +19,13 @@ public class SwingArmPacket implements IThreadsafePacket {
     this.hand = hand;
   }
 
-  public SwingArmPacket(FriendlyByteBuf buffer) {
+  public SwingArmPacket(RegistryFriendlyByteBuf buffer) {
     this.entityId = buffer.readVarInt();
     this.hand = buffer.readEnum(InteractionHand.class);
   }
 
   @Override
-  public void encode(FriendlyByteBuf buffer) {
+  public void encode(RegistryFriendlyByteBuf buffer) {
     buffer.writeVarInt(entityId);
     buffer.writeEnum(hand);
   }

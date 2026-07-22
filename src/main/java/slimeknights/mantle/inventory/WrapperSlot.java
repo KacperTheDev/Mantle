@@ -20,6 +20,16 @@ public class WrapperSlot extends Slot {
     this.parent = slot;
   }
 
+  /**
+   * Copies the current coordinates from the wrapped slot. Module screens reposition their
+   * own slots after the wrapper is constructed, so the wrapper must be kept in sync for
+   * rendering and mouse interaction.
+   */
+  public void syncPosition() {
+    this.x = this.parent.x;
+    this.y = this.parent.y;
+  }
+
   @Override
   public void onQuickCraft(ItemStack oldStack, ItemStack newStack) {
     this.parent.onQuickCraft(oldStack, newStack);

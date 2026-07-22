@@ -53,6 +53,17 @@ public class ShapedRetexturedRecipe extends ShapedRecipe {
     this.matchAll = matchAll;
   }
 
+  private ShapedRetexturedRecipe(ShapedRetexturedRecipe orig, ItemStack result) {
+    super(orig.getGroup(), orig.category(), orig.pattern, result, orig.showNotification());
+    this.texture = orig.texture;
+    this.matchAll = orig.matchAll;
+  }
+
+  /** Copies this recipe with a different output stack, used by native datagen output decorators. */
+  public ShapedRetexturedRecipe withResult(ItemStack result) {
+    return new ShapedRetexturedRecipe(this, result);
+  }
+
   /**
    * Gets the output using the given texture
    * @param texture  Texture to use

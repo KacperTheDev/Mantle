@@ -38,18 +38,18 @@ public class PotionIngredient extends ItemIngredient {
   }
 
   /** Creates a potion ingredient matching a list of items */
-  public static PotionIngredient of(Potion potion, List<ItemLike> items) {
-    return new PotionIngredient(toItem(items), null, potion);
+  public static Ingredient of(Potion potion, List<ItemLike> items) {
+    return new PotionIngredient(toItem(items), null, potion).toVanilla();
   }
 
   /** Creates a potion ingredient matching a list of items */
-  public static PotionIngredient of(Potion potion, ItemLike... items) {
+  public static Ingredient of(Potion potion, ItemLike... items) {
     return of(potion, Arrays.asList(items));
   }
 
   /** Creates a potion ingredient matching a tag */
-  public static PotionIngredient of(Potion potion, TagKey<Item> tag) {
-    return new PotionIngredient(List.of(), tag, potion);
+  public static Ingredient of(Potion potion, TagKey<Item> tag) {
+    return new PotionIngredient(List.of(), tag, potion).toVanilla();
   }
 
   @Override
@@ -77,5 +77,15 @@ public class PotionIngredient extends ItemIngredient {
   @Override
   public Stream<ItemStack> getItems() {
     return super.getItems().map(item -> PotionHelper.setPotion(item, potion));
+  }
+
+  @Override
+  public boolean equals(Object object) {
+    return super.equals(object) && object instanceof PotionIngredient other && potion.equals(other.potion);
+  }
+
+  @Override
+  public int hashCode() {
+    return 31 * super.hashCode() + potion.hashCode();
   }
 }

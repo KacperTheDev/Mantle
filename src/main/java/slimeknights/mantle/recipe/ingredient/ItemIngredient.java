@@ -19,6 +19,7 @@ import slimeknights.mantle.util.typed.TypedMap;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.StreamSupport;
 import java.util.stream.Stream;
 
@@ -54,6 +55,17 @@ public abstract class ItemIngredient implements ICustomIngredient {
     Stream<ItemStack> itemStacks = items.stream().map(ItemStack::new);
     Stream<ItemStack> tagStacks = tag == null ? Stream.of() : StreamSupport.stream(BuiltInRegistries.ITEM.getTagOrEmpty(tag).spliterator(), false).map(holder -> new ItemStack(holder.value()));
     return Stream.concat(itemStacks, tagStacks);
+  }
+
+  @Override
+  public boolean equals(Object object) {
+    return this == object || object != null && getClass() == object.getClass()
+      && object instanceof ItemIngredient other && items.equals(other.items) && Objects.equals(tag, other.tag);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(getClass(), items, tag);
   }
 
   /** Custom field that syncs the item tag as items to the client */

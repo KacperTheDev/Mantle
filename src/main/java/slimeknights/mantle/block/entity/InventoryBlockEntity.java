@@ -9,6 +9,7 @@ import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.Container;
+import net.minecraft.world.ContainerHelper;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.Nameable;
 import net.minecraft.world.entity.player.Player;
@@ -214,38 +215,25 @@ public abstract class InventoryBlockEntity extends NameableBlockEntity implement
    * Writes the contents of the inventory to the tag
    */
   public void writeInventoryToNBT(CompoundTag tag, HolderLookup.Provider provider) {
-    Container inventory = this;
-    ListTag nbttaglist = new ListTag();
-
-    for (int i = 0; i < inventory.getContainerSize(); i++) {
-      if (!inventory.getItem(i).isEmpty()) {
-        CompoundTag itemTag = new CompoundTag();
-        itemTag.putByte(TAG_SLOT, (byte) i);
-        inventory.getItem(i).save(provider, itemTag);
-        nbttaglist.add(itemTag);
-      }
-    }
-
-    tag.put(TAG_ITEMS, nbttaglist);
+    // Use vanilla's 1.21 serializer. ItemStack.save now returns the encoded tag instead of
+    // mutating the supplied prefix, and ContainerHelper handles that contract correctly.
+    ContainerHelper.saveAllItems(tag, inventory, provider);
   }
 
   /**
    * Reads an inventory from the tag. Overwrites current content
    */
   public void readInventoryFromNBT(CompoundTag tag, HolderLookup.Provider provider) {
-    ListTag list = tag.getList(TAG_ITEMS, Tag.TAG_COMPOUND);
+    // Loading is an overwrite operation. Clear slots absent from the saved list as well.
+    for (int i = 0; i < this.inventory.size(); i++) {
+      this.inventory.set(i, ItemStack.EMPTY);
+    }
+    ContainerHelper.loadAllItems(tag, inventory, provider);
 
     int limit = this.getMaxStackSize();
-    ItemStack stack;
-    for (int i = 0; i < list.size(); ++i) {
-      CompoundTag itemTag = list.getCompound(i);
-      int slot = itemTag.getByte(TAG_SLOT) & 255;
-      if (slot < this.inventory.size()) {
-        stack = ItemStack.parseOptional(provider, itemTag);
-        if (!stack.isEmpty() && stack.getCount() > limit) {
-          stack.setCount(limit);
-        }
-        this.inventory.set(slot, stack);
+    for (ItemStack stack : inventory) {
+      if (!stack.isEmpty() && stack.getCount() > limit) {
+        stack.setCount(limit);
       }
     }
   }

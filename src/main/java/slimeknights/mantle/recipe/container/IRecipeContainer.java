@@ -3,12 +3,22 @@ package slimeknights.mantle.recipe.container;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.RecipeInput;
 
 /**
  * {@link Container} extension for a recipe that only needs read access.
  * Used to control which slots an recipe gets and to prevent the need to implement IInventory to get the recipe.
  */
-public interface IRecipeContainer extends Container {
+public interface IRecipeContainer extends Container, RecipeInput {
+  @Override
+  boolean isEmpty();
+
+  /** Bridges the legacy container size contract to the recipe input contract. */
+  @Override
+  default int size() {
+    return getContainerSize();
+  }
+
   /* Unsupported operations */
 
   /** @deprecated unsupported method */

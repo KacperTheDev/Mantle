@@ -1,6 +1,6 @@
 package slimeknights.mantle.network.packet;
 
-import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
@@ -11,7 +11,7 @@ public interface ISimplePacket {
    * Encodes a packet for the buffer
    * @param buf  Buffer instance
    */
-  void encode(FriendlyByteBuf buf);
+  void encode(RegistryFriendlyByteBuf buf);
 
   /**
    * Handles receiving the packet

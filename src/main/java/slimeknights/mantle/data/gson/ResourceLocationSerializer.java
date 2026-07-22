@@ -16,7 +16,7 @@ import java.util.function.Function;
 
 /** Extension to Resource Location serializer to change the default mod ID. */
 @RequiredArgsConstructor
-public class ResourceLocationSerializer<T extends ResourceLocation> implements JsonDeserializer<T>, JsonSerializer<T> {
+public class ResourceLocationSerializer<T> implements JsonDeserializer<T>, JsonSerializer<T> {
   private final Function<String,T> constructor;
   private final String modId;
 
@@ -26,7 +26,7 @@ public class ResourceLocationSerializer<T extends ResourceLocation> implements J
   }
 
   @Override
-  public JsonElement serialize(ResourceLocation loc, Type type, JsonSerializationContext context) {
+  public JsonElement serialize(T loc, Type type, JsonSerializationContext context) {
     return new JsonPrimitive(loc.toString());
   }
 

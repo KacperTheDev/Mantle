@@ -6,6 +6,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.crafting.Ingredient;
 import slimeknights.mantle.util.PotionHelper;
 import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.level.ItemLike;
@@ -30,18 +31,18 @@ public class PotionDisplayIngredient extends ItemIngredient {
   }
 
   /** Creates a ingredient matching a list of items */
-  public static PotionDisplayIngredient of(List<ItemLike> items) {
-    return new PotionDisplayIngredient(toItem(items), null);
+  public static Ingredient of(List<ItemLike> items) {
+    return new PotionDisplayIngredient(toItem(items), null).toVanilla();
   }
 
   /** Creates a ingredient matching a list of items */
-  public static PotionDisplayIngredient of(ItemLike... items) {
+  public static Ingredient of(ItemLike... items) {
     return of(List.of(items));
   }
 
   /** Creates a ingredient matching a tag */
-  public static PotionDisplayIngredient of(TagKey<Item> tag) {
-    return new PotionDisplayIngredient(List.of(), tag);
+  public static Ingredient of(TagKey<Item> tag) {
+    return new PotionDisplayIngredient(List.of(), tag).toVanilla();
   }
 
   @Override

@@ -5,6 +5,7 @@ import net.minecraft.advancements.critereon.InventoryChangeTrigger.TriggerInstan
 import net.minecraft.advancements.critereon.ItemPredicate;
 import net.minecraft.data.recipes.RecipeCategory;
 import net.minecraft.data.recipes.RecipeProvider;
+import net.minecraft.data.recipes.RecipeOutput;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.data.recipes.ShapelessRecipeBuilder;
 import net.minecraft.data.recipes.SingleItemRecipeBuilder;
@@ -50,7 +51,7 @@ public interface ICommonRecipeHelper extends IRecipeHelper {
    * @param smallName  Small name
    * @param folder     Recipe folder
    */
-  default void packingRecipe(Consumer<FinishedRecipe> consumer, RecipeCategory category, String largeName, ItemLike large, String smallName, ItemLike small, String folder) {
+  default void packingRecipe(RecipeOutput consumer, RecipeCategory category, String largeName, ItemLike large, String smallName, ItemLike small, String folder) {
     // ingot to block
     ResourceLocation largeId = id(large);
     ShapedRecipeBuilder.shaped(category, large)
@@ -80,7 +81,7 @@ public interface ICommonRecipeHelper extends IRecipeHelper {
    * @param smallName  Small name
    * @param folder     Recipe folder
    */
-  default void packingRecipe(Consumer<FinishedRecipe> consumer, RecipeCategory category, String largeName, ItemLike largeItem, String smallName, ItemLike smallItem, TagKey<Item> smallTag, String folder) {
+  default void packingRecipe(RecipeOutput consumer, RecipeCategory category, String largeName, ItemLike largeItem, String smallName, ItemLike smallItem, TagKey<Item> smallTag, String folder) {
     // ingot to block
     // note our item is in the center, any mod allowed around the edges
     ResourceLocation largeId = id(largeItem);
@@ -108,7 +109,7 @@ public interface ICommonRecipeHelper extends IRecipeHelper {
    * @param metal     Metal object
    * @param folder    Folder for recipes
    */
-  default void metalCrafting(Consumer<FinishedRecipe> consumer, MetalItemObject metal, String folder) {
+  default void metalCrafting(RecipeOutput consumer, MetalItemObject metal, String folder) {
     ItemLike ingot = metal.getIngot();
     packingRecipe(consumer, RecipeCategory.MISC, "block", metal.get(), "ingot", ingot, metal.getIngotTag(), folder);
     packingRecipe(consumer, RecipeCategory.MISC, "ingot", ingot, "nugget", metal.getNugget(), metal.getNuggetTag(), folder);
@@ -122,7 +123,7 @@ public interface ICommonRecipeHelper extends IRecipeHelper {
    * @param consumer  Recipe consumer
    * @param building  Building object instance
    */
-  default void slabStairsCrafting(Consumer<FinishedRecipe> consumer, BuildingBlockObject building, String folder, boolean addStonecutter) {
+  default void slabStairsCrafting(RecipeOutput consumer, BuildingBlockObject building, String folder, boolean addStonecutter) {
     Item item = building.asItem();
     ResourceLocation itemId = id(item);
     Criterion<TriggerInstance> hasBlock = has(item);
@@ -162,7 +163,7 @@ public interface ICommonRecipeHelper extends IRecipeHelper {
    * @param consumer  Recipe consumer
    * @param building  Building object instance
    */
-  default void stairSlabWallCrafting(Consumer<FinishedRecipe> consumer, WallBuildingBlockObject building, String folder, boolean addStonecutter) {
+  default void stairSlabWallCrafting(RecipeOutput consumer, WallBuildingBlockObject building, String folder, boolean addStonecutter) {
     slabStairsCrafting(consumer, building, folder, addStonecutter);
     // wall
     Item item = building.asItem();
@@ -191,7 +192,7 @@ public interface ICommonRecipeHelper extends IRecipeHelper {
    * @param wood      Wood types
    * @param folder    Wood folder
    */
-  default void woodCrafting(Consumer<FinishedRecipe> consumer, WoodBlockObject wood, String folder) {
+  default void woodCrafting(RecipeOutput consumer, WoodBlockObject wood, String folder) {
     Criterion<TriggerInstance> hasPlanks = has(wood);
 
     // planks

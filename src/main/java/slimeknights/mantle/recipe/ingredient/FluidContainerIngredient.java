@@ -4,6 +4,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -23,13 +25,15 @@ import slimeknights.mantle.util.JsonHelper;
 
 import javax.annotation.Nullable;
 import java.util.stream.Stream;
+import java.util.Objects;
 
 /** Ingredient that matches a container of fluid */
 @SuppressWarnings("unused")  // API
 public class FluidContainerIngredient implements ICustomIngredient {
   public static final ResourceLocation ID = Mantle.getResource("fluid_container");
   public static final Serializer SERIALIZER = new Serializer();
-  public static final IngredientType<FluidContainerIngredient> TYPE = new IngredientType<>(SERIALIZER.codec());
+  public static final IngredientType<FluidContainerIngredient> TYPE = new IngredientType<>(SERIALIZER.codec(), StreamCodec.of(
+    (buffer, ingredient) -> SERIALIZER.write(buffer, ingredient), SERIALIZER::parse));
 
   /** Ingredient to use for matching */
   private final FluidIngredient fluidIngredient;
@@ -43,17 +47,17 @@ public class FluidContainerIngredient implements ICustomIngredient {
   }
 
   /** Creates an instance from a fluid ingredient with a display container */
-  public static FluidContainerIngredient fromIngredient(FluidIngredient ingredient, Ingredient display) {
-    return new FluidContainerIngredient(ingredient, display);
+  public static Ingredient fromIngredient(FluidIngredient ingredient, Ingredient display) {
+    return new FluidContainerIngredient(ingredient, display).toVanilla();
   }
 
   /** Creates an instance from a fluid ingredient with no display, not recommended */
-  public static FluidContainerIngredient fromIngredient(FluidIngredient ingredient) {
-    return new FluidContainerIngredient(ingredient, null);
+  public static Ingredient fromIngredient(FluidIngredient ingredient) {
+    return new FluidContainerIngredient(ingredient, null).toVanilla();
   }
 
   /** Creates an instance from a fluid ingredient with a display container */
-  public static FluidContainerIngredient fromFluid(FluidObject<?> fluid) {
+  public static Ingredient fromFluid(FluidObject<?> fluid) {
     return fromIngredient(fluid.ingredient(FluidType.BUCKET_VOLUME), Ingredient.of(fluid));
   }
 
@@ -127,6 +131,17 @@ public class FluidContainerIngredient implements ICustomIngredient {
   @Override
   public IngredientType<?> getType() {
     return TYPE;
+  }
+
+  @Override
+  public boolean equals(Object object) {
+    return this == object || object instanceof FluidContainerIngredient other
+      && fluidIngredient.serialize().equals(other.fluidIngredient.serialize()) && Objects.equals(display, other.display);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(fluidIngredient.serialize(), display);
   }
 
   /** Serializer logic */

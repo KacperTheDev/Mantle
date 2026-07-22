@@ -137,17 +137,17 @@ public class FluidRenderer {
 
     // if rotating by 90 or 270, swap U and V
     float minU, maxU, minV, maxV;
-    float size = flowing ? 8 : 16;
+    float scale = flowing ? 0.5f : 1f;
     if ((rotation % 180) == 90) {
-      minU = sprite.getU(v1 * size);
-      maxU = sprite.getU(v2 * size);
-      minV = sprite.getV(u1 * size);
-      maxV = sprite.getV(u2 * size);
+      minU = sprite.getU(v1 * scale);
+      maxU = sprite.getU(v2 * scale);
+      minV = sprite.getV(u1 * scale);
+      maxV = sprite.getV(u2 * scale);
     } else {
-      minU = sprite.getU(u1 * size);
-      maxU = sprite.getU(u2 * size);
-      minV = sprite.getV(v1 * size);
-      maxV = sprite.getV(v2 * size);
+      minU = sprite.getU(u1 * scale);
+      maxU = sprite.getU(u2 * scale);
+      minV = sprite.getV(v1 * scale);
+      maxV = sprite.getV(v2 * scale);
     }
     // based on rotation, put coords into place
     float u3, u4, v3, v4;

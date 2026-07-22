@@ -10,6 +10,9 @@ import net.minecraft.advancements.AdvancementRequirements;
 import net.minecraft.advancements.Criterion;
 import net.minecraft.advancements.critereon.RecipeUnlockedTrigger;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.data.recipes.RecipeOutput;
+import net.minecraft.advancements.AdvancementHolder;
+import net.neoforged.neoforge.common.conditions.ICondition;
 import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.item.crafting.RecipeSerializer;
 import slimeknights.mantle.data.loadable.record.RecordLoadable;
@@ -74,14 +77,20 @@ public abstract class AbstractRecipeBuilder<T extends AbstractRecipeBuilder<T>> 
    * Builds the recipe with a default recipe ID, typically based on the output
    * @param consumerIn  Recipe consumer
    */
-  public abstract void save(Consumer<FinishedRecipe> consumerIn);
+  public abstract void save(RecipeOutput output);
 
   /**
    * Builds the recipe
    * @param consumerIn  Recipe consumer
    * @param id          Recipe ID
    */
-  public abstract void save(Consumer<FinishedRecipe> consumerIn, ResourceLocation id);
+  public abstract void save(RecipeOutput output, ResourceLocation id);
+
+  /** Emits a recipe and its optional advancement through the native 1.21 recipe sink. */
+  protected final void saveRecipe(RecipeOutput output, ResourceLocation id, Recipe<?> recipe, @Nullable ResourceLocation advancementId) {
+    AdvancementHolder advancement = advancementId == null ? null : advancementBuilder.build(advancementId);
+    output.accept(id, recipe, advancement);
+  }
 
   /**
    * Base logic for advancement building
@@ -147,6 +156,7 @@ public abstract class AbstractRecipeBuilder<T extends AbstractRecipeBuilder<T>> 
   }
 
   /** Finished recipe using a loadable */
+  @Deprecated(forRemoval = true)
   protected class LoadableFinishedRecipe<R extends Recipe<?>> extends AbstractFinishedRecipe {
     private final R recipe;
     private final RecordLoadable<R> loadable;
@@ -165,5 +175,6 @@ public abstract class AbstractRecipeBuilder<T extends AbstractRecipeBuilder<T>> 
     public RecipeSerializer<?> getType() {
       return recipe.getSerializer();
     }
+
   }
 }

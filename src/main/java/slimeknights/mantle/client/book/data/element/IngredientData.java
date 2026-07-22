@@ -18,6 +18,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.StringUtil;
+import slimeknights.mantle.Mantle;
 import slimeknights.mantle.client.book.repository.BookRepository;
 import slimeknights.mantle.recipe.ingredient.SizedIngredient;
 
@@ -30,6 +31,8 @@ public class IngredientData implements IDataElement {
   public String action;
 
   private transient String error;
+  /** Original JSON used for diagnostics when the ingredient cannot produce an item. */
+  private transient String debugJson;
   private transient NonNullList<ItemStack> items;
   private transient boolean customData;
 
@@ -59,6 +62,12 @@ public class IngredientData implements IDataElement {
       return;
     }
 
+    if (ingredients == null) {
+      Mantle.logger.error("Book ingredient data contained a null ingredient array. JSON: {}", debugJson);
+      items = NonNullList.withSize(1, getMissingItem("Ingredient array was null"));
+      return;
+    }
+
     ArrayList<ItemStack> stacks = new ArrayList<>();
     for(SizedIngredient ingredient : ingredients) {
       if(ingredient == null) {
@@ -68,7 +77,11 @@ public class IngredientData implements IDataElement {
       stacks.addAll(ingredient.getMatchingStacks());
     }
 
-    if(ingredients == null || stacks.isEmpty() || !StringUtil.isNullOrEmpty(error)) {
+    if (stacks.isEmpty() && StringUtil.isNullOrEmpty(error)) {
+      Mantle.logger.error("Book ingredient parsed successfully but produced no matching item stacks. JSON: {}", debugJson);
+    }
+
+    if(stacks.isEmpty() || !StringUtil.isNullOrEmpty(error)) {
       items = NonNullList.withSize(1, getMissingItem());
       return;
     }
@@ -98,6 +111,7 @@ public class IngredientData implements IDataElement {
     @Override
     public IngredientData deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
       IngredientData data = new IngredientData();
+      data.debugJson = json == null ? "null" : json.toString();
 
       if(json.isJsonArray()) {
         JsonArray array = json.getAsJsonArray();
@@ -107,6 +121,7 @@ public class IngredientData implements IDataElement {
           try {
             data.ingredients[i] = readIngredient(array.get(i));
           } catch (Exception e) {
+            Mantle.logger.error("Failed to deserialize book ingredient at array index {}. Ingredient JSON: {}. Full field JSON: {}", i, array.get(i), json, e);
             data.ingredients[i] = SizedIngredient.of(Ingredient.of(data.getMissingItem(e.getMessage())));
           }
         }
@@ -118,6 +133,7 @@ public class IngredientData implements IDataElement {
         data.ingredients = new SizedIngredient[]{ readIngredient(json) };
       } catch (Exception e) {
         data.error = e.getMessage();
+        Mantle.logger.error("Failed to deserialize book ingredient. JSON: {}", json, e);
         return data;
       }
 
@@ -152,7 +168,40 @@ public class IngredientData implements IDataElement {
       }
 
       JsonObject object = json.getAsJsonObject();
-      return SizedIngredient.deserialize(object);
+      return SizedIngredient.deserialize(migrateLegacyNbtIngredient(object));
+    }
+
+    /**
+     * Forge's old {@code forge:nbt} ingredient was removed when item NBT moved to data components.
+     * Books are client resources, so accept the legacy format and translate it to NeoForge's
+     * {@code neoforge:components} ingredient using the vanilla custom-data component.
+     */
+    private JsonObject migrateLegacyNbtIngredient(JsonObject object) {
+      JsonElement type = object.get("type");
+      if (type == null || !type.isJsonPrimitive() || !"forge:nbt".equals(type.getAsString())) {
+        return object;
+      }
+
+      JsonObject migrated = object.deepCopy();
+      migrated.addProperty("type", "neoforge:components");
+
+      JsonElement item = migrated.remove("item");
+      if (item != null) {
+        // HolderSetCodec uses a JSON list for direct item IDs, even when there is only one item.
+        JsonArray items = new JsonArray();
+        if (item.isJsonArray()) {
+          item.getAsJsonArray().forEach(items::add);
+        } else {
+          items.add(item);
+        }
+        migrated.add("items", items);
+      }
+
+      JsonElement nbt = migrated.remove("nbt");
+      JsonObject components = new JsonObject();
+      components.add("minecraft:custom_data", nbt == null ? new JsonObject() : nbt);
+      migrated.add("components", components);
+      return migrated;
     }
   }
 }

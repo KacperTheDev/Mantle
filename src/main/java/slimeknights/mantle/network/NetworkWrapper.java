@@ -1,7 +1,6 @@
 package slimeknights.mantle.network;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.Packet;
@@ -65,14 +64,14 @@ public class NetworkWrapper {
    * @param direction Ignored, kept for source compatibility.
    * @param <MSG>  Packet class type
    */
-  public <MSG extends ISimplePacket> void registerPacket(Class<MSG> clazz, Function<FriendlyByteBuf, MSG> decoder, PacketDirection direction) {
+  public <MSG extends ISimplePacket> void registerPacket(Class<MSG> clazz, Function<RegistryFriendlyByteBuf, MSG> decoder, PacketDirection direction) {
     int nextId = this.id++;
     byId.put(nextId, new Registration<>(clazz, wrapLogger(clazz, decoder)));
     byClass.put(clazz, nextId);
   }
 
   /** Wraps the given decoder function */
-  private static <MSG extends ISimplePacket> Function<FriendlyByteBuf,MSG> wrapLogger(Class<MSG> clazz, Function<FriendlyByteBuf,MSG> decoder) {
+  private static <MSG extends ISimplePacket> Function<RegistryFriendlyByteBuf,MSG> wrapLogger(Class<MSG> clazz, Function<RegistryFriendlyByteBuf,MSG> decoder) {
     return buffer -> {
       try {
         return decoder.apply(buffer);
@@ -89,7 +88,7 @@ public class NetworkWrapper {
     if (registration == null) {
       throw new IllegalArgumentException("Unknown Mantle packet ID " + id);
     }
-    return new WrappedPayload(id, registration.decoder.apply(buffer));
+    return new WrappedPayload(payloadType, id, registration.decoder.apply(buffer));
   }
 
   private void handle(WrappedPayload payload, IPayloadContext context) {
@@ -101,7 +100,7 @@ public class NetworkWrapper {
     if (id == null) {
       throw new IllegalArgumentException("Unregistered Mantle packet " + packet.getClass().getName());
     }
-    return new WrappedPayload(id, packet);
+    return new WrappedPayload(payloadType, id, packet);
   }
 
 
@@ -189,12 +188,12 @@ public class NetworkWrapper {
     }
   }
 
-  private record Registration<MSG extends ISimplePacket>(Class<MSG> clazz, Function<FriendlyByteBuf, MSG> decoder) {}
+  private record Registration<MSG extends ISimplePacket>(Class<MSG> clazz, Function<RegistryFriendlyByteBuf, MSG> decoder) {}
 
-  private record WrappedPayload(int id, ISimplePacket packet) implements CustomPacketPayload {
+  private record WrappedPayload(CustomPacketPayload.Type<WrappedPayload> payloadType, int id, ISimplePacket packet) implements CustomPacketPayload {
     @Override
     public Type<? extends CustomPacketPayload> type() {
-      return MantleNetwork.INSTANCE.payloadType;
+      return payloadType;
     }
 
     public void encode(RegistryFriendlyByteBuf buffer) {

@@ -2,7 +2,7 @@ package slimeknights.mantle.recipe.helper;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
-import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.Recipe;
@@ -87,7 +87,7 @@ public class RecipeHelper {
    * @param clazz    Preferred recipe class type
    * @return  List of flattened recipes from the manager
    */
-  public static <C> List<C> getJEIRecipes(RegistryAccess access, Stream<? extends Recipe<?>> recipes, Class<C> clazz) {
+  public static <C> List<C> getJEIRecipes(HolderLookup.Provider access, Stream<? extends Recipe<?>> recipes, Class<C> clazz) {
     return recipes
         .sorted((r1, r2) -> {
           // if one is multi, and the other not, the multi recipe is larger
@@ -119,7 +119,7 @@ public class RecipeHelper {
    * @param clazz    Preferred recipe class type
    * @return  List of flattened recipes from the manager
    */
-  public static <I extends RecipeInput, T extends Recipe<I>, C> List<C> getJEIRecipes(RegistryAccess access, RecipeManager manager, RecipeType<T> type, Class<C> clazz) {
+  public static <I extends RecipeInput, T extends Recipe<I>, C> List<C> getJEIRecipes(HolderLookup.Provider access, RecipeManager manager, RecipeType<T> type, Class<C> clazz) {
     return getJEIRecipes(access, manager.getAllRecipesFor(type).stream().sorted(Comparator.comparing(RecipeHolder::id)).map(RecipeHolder::value), clazz);
   }
 }

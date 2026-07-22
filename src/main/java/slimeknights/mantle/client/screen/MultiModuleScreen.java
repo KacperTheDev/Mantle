@@ -141,7 +141,9 @@ public class MultiModuleScreen<CONTAINER extends MultiModuleContainerMenu<?>> ex
 
   @Override
   public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
-    this.renderBackground(graphics, mouseX, mouseY, partialTicks);
+    // AbstractContainerScreen.render() already calls renderBackground() in 1.21.1.
+    // Calling it here as well renders the main texture once using the expanded
+    // multi-module bounds, producing a duplicated panel behind side modules.
     int oldX = this.leftPos;
     int oldY = this.topPos;
     int oldW = this.imageWidth;
@@ -191,6 +193,9 @@ public class MultiModuleScreen<CONTAINER extends MultiModuleContainerMenu<?>> ex
 
   @Override
   public void renderSlot(GuiGraphics graphics, Slot slotIn) {
+    if (slotIn instanceof WrapperSlot wrapper) {
+      wrapper.syncPosition();
+    }
     ModuleScreen<?,?> module = this.getModuleForSlot(slotIn.index);
 
     if (module != null) {
@@ -209,6 +214,9 @@ public class MultiModuleScreen<CONTAINER extends MultiModuleContainerMenu<?>> ex
   }
 
   public boolean isHovering(Slot slotIn, double mouseX, double mouseY) {
+    if (slotIn instanceof WrapperSlot wrapper) {
+      wrapper.syncPosition();
+    }
     ModuleScreen<?,?> module = this.getModuleForSlot(slotIn.index);
 
     // mouse inside the module of the slot?

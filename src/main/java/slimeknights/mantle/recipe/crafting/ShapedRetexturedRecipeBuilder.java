@@ -4,11 +4,17 @@ import com.google.gson.JsonObject;
 import com.mojang.serialization.JsonOps;
 import lombok.RequiredArgsConstructor;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
+import net.minecraft.data.recipes.RecipeOutput;
+import net.minecraft.advancements.Advancement;
+import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeSerializer;
+import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.ShapedRecipe;
+import net.neoforged.neoforge.common.conditions.ICondition;
 import slimeknights.mantle.Mantle;
 import slimeknights.mantle.recipe.MantleRecipes;
 import slimeknights.mantle.recipe.helper.FinishedRecipe;
@@ -66,9 +72,9 @@ public class ShapedRetexturedRecipeBuilder {
    * Builds the recipe with the default name using the given consumer
    * @param consumer Recipe consumer
    */
-  public void build(Consumer<FinishedRecipe> consumer) {
+  public void build(RecipeOutput consumer) {
     this.validate();
-    parent.save(new FinishedRecipeOutput(consumer, Result::new));
+    parent.save(wrap(consumer));
   }
 
   /**
@@ -76,9 +82,26 @@ public class ShapedRetexturedRecipeBuilder {
    * @param consumer Recipe consumer
    * @param location Recipe location
    */
-  public void build(Consumer<FinishedRecipe> consumer, ResourceLocation location) {
+  public void build(RecipeOutput consumer, ResourceLocation location) {
     this.validate();
-    parent.save(new FinishedRecipeOutput(consumer, Result::new), location);
+    parent.save(wrap(consumer), location);
+  }
+
+  private RecipeOutput wrap(RecipeOutput output) {
+    return new RecipeOutput() {
+      @Override
+      public Advancement.Builder advancement() {
+        return output.advancement();
+      }
+
+      @Override
+      public void accept(ResourceLocation id, Recipe<?> recipe, @Nullable AdvancementHolder advancement, ICondition... conditions) {
+        if (!(recipe instanceof ShapedRecipe shaped)) {
+          throw new IllegalArgumentException("Retextured recipes require a shaped recipe, got " + recipe.getClass().getName());
+        }
+        output.accept(id, new ShapedRetexturedRecipe(shaped, texture, matchAll), advancement, conditions);
+      }
+    };
   }
 
   /**

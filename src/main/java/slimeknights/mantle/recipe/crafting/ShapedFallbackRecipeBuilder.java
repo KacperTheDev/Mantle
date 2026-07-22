@@ -4,8 +4,14 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import lombok.RequiredArgsConstructor;
 import net.minecraft.data.recipes.ShapedRecipeBuilder;
+import net.minecraft.data.recipes.RecipeOutput;
+import net.minecraft.advancements.Advancement;
+import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.crafting.RecipeSerializer;
+import net.minecraft.world.item.crafting.Recipe;
+import net.minecraft.world.item.crafting.ShapedRecipe;
+import net.neoforged.neoforge.common.conditions.ICondition;
 import slimeknights.mantle.recipe.MantleRecipes;
 import slimeknights.mantle.recipe.helper.FinishedRecipe;
 import slimeknights.mantle.recipe.helper.FinishedRecipeOutput;
@@ -47,8 +53,8 @@ public class ShapedFallbackRecipeBuilder {
    * Builds the recipe using the output as the name
    * @param consumer  Recipe consumer
    */
-  public void build(Consumer<FinishedRecipe> consumer) {
-    base.save(new FinishedRecipeOutput(consumer, recipe -> new Result(recipe, alternatives)));
+  public void build(RecipeOutput output) {
+    base.save(wrap(output));
   }
 
   /**
@@ -56,8 +62,25 @@ public class ShapedFallbackRecipeBuilder {
    * @param consumer  Recipe consumer
    * @param id        Recipe ID
    */
-  public void build(Consumer<FinishedRecipe> consumer, ResourceLocation id) {
-    base.save(new FinishedRecipeOutput(consumer, recipe -> new Result(recipe, alternatives)), id);
+  public void build(RecipeOutput output, ResourceLocation id) {
+    base.save(wrap(output), id);
+  }
+
+  private RecipeOutput wrap(RecipeOutput output) {
+    return new RecipeOutput() {
+      @Override
+      public Advancement.Builder advancement() {
+        return output.advancement();
+      }
+
+      @Override
+      public void accept(ResourceLocation id, Recipe<?> recipe, @Nullable AdvancementHolder advancement, ICondition... conditions) {
+        if (!(recipe instanceof ShapedRecipe shaped)) {
+          throw new IllegalArgumentException("Fallback recipes require a shaped recipe, got " + recipe.getClass().getName());
+        }
+        output.accept(id, new ShapedFallbackRecipe(shaped, List.copyOf(alternatives)), advancement, conditions);
+      }
+    };
   }
 
   private record Result(FinishedRecipe base, List<ResourceLocation> alternatives) implements FinishedRecipe {

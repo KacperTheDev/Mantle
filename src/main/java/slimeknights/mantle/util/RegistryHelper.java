@@ -3,6 +3,7 @@ package slimeknights.mantle.util;
 import net.minecraft.core.DefaultedRegistry;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
+import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.TagKey;
@@ -102,5 +103,25 @@ public class RegistryHelper {
   public static <T> Supplier<T> getHolder(DefaultedRegistry<T> registry, T entry) {
     Holder.Reference<T> holder = registry.getHolder(registry.getId(entry)).orElseThrow();
     return holder::value;
+  }
+
+  /** Gets a dynamic registry from the active registry access. */
+  public static <T> Registry<T> getRegistry(RegistryAccess access, ResourceKey<? extends Registry<T>> key) {
+    return access.registryOrThrow(key);
+  }
+
+  /** Resolves a dynamic registry key to its holder. */
+  public static <T> Holder.Reference<T> getHolder(RegistryAccess access, ResourceKey<T> key) {
+    return access.registryOrThrow(key.registryKey()).getHolder(key).orElseThrow();
+  }
+
+  /** Gets a stream of tag holders from a dynamic registry. */
+  public static <T> Stream<Holder<T>> getTagStream(RegistryAccess access, TagKey<T> key) {
+    return getTagStream(access.registryOrThrow(key.registry()), key);
+  }
+
+  /** Checks whether a holder belongs to a tag. */
+  public static <T> boolean contains(TagKey<T> tag, Holder<T> holder) {
+    return holder.is(tag);
   }
 }

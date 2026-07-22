@@ -78,6 +78,7 @@ import slimeknights.mantle.recipe.helper.TagPreference;
 import slimeknights.mantle.recipe.ingredient.FluidContainerIngredient;
 import slimeknights.mantle.recipe.ingredient.PotionDisplayIngredient;
 import slimeknights.mantle.recipe.ingredient.PotionIngredient;
+import slimeknights.mantle.recipe.data.ItemNameIngredient;
 import slimeknights.mantle.registration.RegistrationHelper;
 import slimeknights.mantle.registration.adapter.BlockEntityTypeRegistryAdapter;
 import slimeknights.mantle.util.OffhandCooldownTracker;
@@ -98,7 +99,7 @@ public class Mantle {
   public static final String modId = "mantle";
   public static final Logger logger = LogManager.getLogger("Mantle");
   /** Namespace for common tags, used for easier migration to the future "c" standard */
-  public static final String COMMON = "forge";
+  public static final String COMMON = "c";
 
   /* Instance of this mod, used for grabbing prototype fields */
   public static Mantle instance;
@@ -229,6 +230,7 @@ public class Mantle {
     }
     else if (key == NeoForgeRegistries.Keys.INGREDIENT_TYPES) {
       event.register(NeoForgeRegistries.Keys.INGREDIENT_TYPES, helper -> {
+        helper.register(ItemNameIngredient.ID, ItemNameIngredient.TYPE);
         helper.register(FluidContainerIngredient.ID, FluidContainerIngredient.TYPE);
         helper.register(getResource("potion"), PotionIngredient.TYPE);
         helper.register(getResource("potion_display"), PotionDisplayIngredient.TYPE);

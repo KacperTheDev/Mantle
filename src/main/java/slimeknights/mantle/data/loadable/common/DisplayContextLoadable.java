@@ -17,12 +17,9 @@ public enum DisplayContextLoadable implements ResourceLocationLoadable<ItemDispl
 
   @Override
   public ItemDisplayContext fromKey(ResourceLocation name, String key, TypedMap context) {
-    if (name.getNamespace().equals("minecraft")) {
-      String path = name.getPath();
-      for (ItemDisplayContext value : ItemDisplayContext.values()) {
-        if (value.getSerializedName().equals(path)) {
-          return value;
-        }
+    for (ItemDisplayContext value : ItemDisplayContext.values()) {
+      if (ResourceLocation.parse(value.getSerializedName()).equals(name)) {
+        return value;
       }
     }
     throw new JsonSyntaxException("Unable to parse " + key + " as an item display context: " + name);
@@ -30,7 +27,7 @@ public enum DisplayContextLoadable implements ResourceLocationLoadable<ItemDispl
 
   @Override
   public ResourceLocation getKey(ItemDisplayContext object) {
-    return ResourceLocation.fromNamespaceAndPath("minecraft", object.getSerializedName());
+    return ResourceLocation.parse(object.getSerializedName());
   }
 
   @Override

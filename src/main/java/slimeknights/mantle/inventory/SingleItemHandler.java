@@ -142,11 +142,10 @@ public abstract class SingleItemHandler<T extends MantleBlockEntity> implements 
    * @return  Module in NBT
    */
   public CompoundTag writeToNBT(HolderLookup.Provider provider) {
-    CompoundTag nbt = new CompoundTag();
-    if (!stack.isEmpty()) {
-      stack.save(provider, nbt);
+    if (stack.isEmpty()) {
+      return new CompoundTag();
     }
-    return nbt;
+    return (CompoundTag) stack.save(provider, new CompoundTag());
   }
 
   /**

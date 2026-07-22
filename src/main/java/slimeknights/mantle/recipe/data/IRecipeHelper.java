@@ -97,7 +97,7 @@ public interface IRecipeHelper {
    * @param suffix    Path suffix
    * @return  Location with the given prefix and suffix
    */
-  default ResourceLocation wrap(DeferredHolder<?, ?> location, String prefix, String suffix) {
+  default <R,T extends R> ResourceLocation wrap(DeferredHolder<R,T> location, String prefix, String suffix) {
     return wrap(location.getId(), prefix, suffix);
   }
 
@@ -107,7 +107,7 @@ public interface IRecipeHelper {
    * @param prefix    Path prefix
    * @return  Location with the given prefix
    */
-  default ResourceLocation prefix(DeferredHolder<?, ?> location, String prefix) {
+  default <R,T extends R> ResourceLocation prefix(DeferredHolder<R,T> location, String prefix) {
     return prefix(location.getId(), prefix);
   }
 
@@ -117,7 +117,7 @@ public interface IRecipeHelper {
    * @param suffix    Path suffix
    * @return  Location with the given suffix
    */
-  default ResourceLocation suffix(DeferredHolder<?, ?> location, String suffix) {
+  default <R,T extends R> ResourceLocation suffix(DeferredHolder<R,T> location, String suffix) {
     return suffix(location.getId(), suffix);
   }
 
@@ -201,8 +201,18 @@ public interface IRecipeHelper {
     return builder.build(consumer);
   }
 
+  /** Adds conditions to a native 1.21 recipe sink. */
+  default RecipeOutput withCondition(RecipeOutput output, ICondition... conditions) {
+    return output.withConditions(conditions);
+  }
+
   /** Wraps Mantle's legacy finished recipe consumer for vanilla's 1.21 recipe builders. */
   default RecipeOutput output(Consumer<FinishedRecipe> consumer) {
     return new FinishedRecipeOutput(consumer, recipe -> recipe);
+  }
+
+  /** Keeps helpers source-compatible when their caller already uses the native 1.21 sink. */
+  default RecipeOutput output(RecipeOutput output) {
+    return output;
   }
 }
